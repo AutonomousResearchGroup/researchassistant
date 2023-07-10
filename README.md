@@ -39,7 +39,6 @@ research(
     path="data", # path to store data, final path will be <path>/<topic> (Optional)
     use_existing=True, # use existing data on topic fresh or start fresh (Optional)
     include_keywords=["artificial intelligence", "machine learning"], # Include documents which have these keywords in relevancy check (Optional)
-    exclude_keywords=["e/acc"] # Exclude documents which have these keywords in relevancy check (Optional)
     )
 ```
 
@@ -55,7 +54,6 @@ research(
     path="data", # path to store data, final path will be <path>/<topic> (Optional)
     use_existing=True, # use existing data on topic fresh or start fresh (Optional)
     include_keywords=["ic3", "smt", "Satisfiability Modulo Theory", "Incremental Inductive Cube Checker"], # Include documents which have these keywords in relevancy check (Optional)
-    exclude_keywords=["Internet Crime Complaint Center", "Digital Literacy Certification", "Surface-mount technology"] # Exclude documents which have these keywords in relevancy check (Optional)
     )
 ```
 

@@ -8,18 +8,11 @@ __version__ = "0.1.8"
 __author__ = "Moon (https://github.com/lalalune)"
 __credits__ = "https://github.com/lalalune/researchassistant"
 
-from .research import research
-from .archive import import_archive, export_archive
-from .search import search
+from .extract import extract_from_file_or_url, extract
+from .crawl import crawl
 
 __all__ = [
-    "create_memory",
-    "get_memories",
-    "search_memory",
-    "get_memory",
-    "update_memory",
-    "delete_memory",
-    "count_memories",
-    "wipe_category",
-    "wipe_all_memories",
+    "crawl",
+    "extract_from_file_or_url",
+    "extract",
 ]

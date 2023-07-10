@@ -2,8 +2,6 @@ from agentbrowser.browser import (
     create_page,
     navigate_to,
     get_body_text,
-    get_current_page_id,
-    run_until_complete,
 )
 
 import asyncio
@@ -16,12 +14,106 @@ from agentmemory import (
     update_memory,
 )
 
-from constants import (
-    element_blacklist,
-    keywords,
-    skip_media_types,
-    media_domains,
-)
+# Global set for deduplication
+crawled_links = set()
+
+keywords = ["artificial intelligence", "existential risk"]
+
+whitelist_urls = [
+    "https://www.lesswrong.com/posts/gEchYntjSXk9KXorK/uncontrollable-ai-as-an-existential-risk",
+]
+
+default_whitelist_domains = ["slatestarcodex.com"]
+
+default_media_domains = [
+    "youtube.com",
+    "facebook.com",
+    "twitter.com",
+    "instagram.com",
+    "tiktok.com",
+    "soundcloud.com",
+    "vimeo.com",
+    "imdb.com",
+]
+
+skip_media_types = [
+    "pdf",
+    "svg",
+    "png",
+    "jpg",
+    "jpeg",
+    "mp3",
+    "mp4",
+    "aif",
+    "wav",
+    "ogg",
+    "mov",
+    "wmv",
+    "zip",
+    "exe",
+    "bin",
+]
+
+link_blacklist = [
+    "home",
+    "next",
+    "about us",
+    "contact",
+    "log in",
+    "account",
+    "sign up",
+    "sign in",
+    "sign out",
+    "privacy policy",
+    "terms of service",
+    "terms and conditions",
+    "terms",
+    "conditions",
+    "privacy",
+    "legal",
+    "guidelines",
+    "filter",
+    "theme",
+    "english",
+    "accessibility",
+    "authenticate",
+    "join",
+    "edition",
+    "subscribe",
+    "news",
+    "home",
+    "blog",
+    "jump to",
+    "español",
+    "world",
+    "europe",
+    "politics",
+    "profile",
+    "election",
+    "health",
+    "business",
+    "tech",
+    "sports",
+]
+
+element_blacklist = [
+    "sidebar",
+    "nav",
+    "footer",
+    "header",
+    "menu",
+    "account",
+    "login",
+    "form",
+    "search",
+    "advertisement",
+    "masthead",
+    "popup",
+    "overlay",
+    "floater",
+    "modal",
+]
+
 
 current_page = None
 
@@ -113,7 +205,7 @@ async def crawl(url, depth=0, maximum_depth=3):
         return
 
     # if the url includes youtube.com in the domain, return
-    if any([media_url in url for media_url in media_domains]):
+    if any([media_url in url for media_url in default_media_domains]):
         print("Skipping media domain:", url)
         add_url_entry(url, url, valid=True, type="media_url", crawled=False)
         return
@@ -299,4 +391,5 @@ with open("links.txt", "r") as f:
             # use asyncio.gather to run all tasks concurrently
             await asyncio.gather(*tasks)
 
-    run_until_complete(start_crawl())
+    # create a new asyncio loop
+    asyncio.get_event_loop().run_until_complete(start_crawl())
