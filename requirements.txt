@@ -5,3 +5,5 @@ fuzzysearch
 prompt_toolkit
 pyfiglet
 PyPDF2
+openai-whisper
+yt_dlp
