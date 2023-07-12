@@ -2,3 +2,5 @@ agentmemory
 easycompletion
 agentbrowser
 fuzzysearch
+prompt_toolkit
+pyfiglet

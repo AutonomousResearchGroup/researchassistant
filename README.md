@@ -7,12 +7,6 @@ This is not ready for use yet
 
 <img src="resources/image.jpg">
 
-# Installation
-
-```bash
-pip install researchassistant
-```
-
 # Usage
 
 ## Importing into your project

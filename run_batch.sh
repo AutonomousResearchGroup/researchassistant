@@ -10,4 +10,4 @@ script_to_run() {
 export -f script_to_run
 
 # Call xargs to run the script for each line, 5 at a time
-cat urls.txt | xargs -I {} -P 5 bash -c 'script_to_run "$@"' _ {}
+cat urls.txt | xargs -I {} -P 10 bash -c 'script_to_run "$@"' _ {}
