@@ -1,6 +1,7 @@
 import csv
-import re
 import sys
+
+import PyPDF2
 from dotenv import load_dotenv
 from fuzzysearch import find_near_matches
 
@@ -10,42 +11,12 @@ load_dotenv()
 
 from easycompletion import (
     openai_function_call,
-    openai_text_call,
     compose_prompt,
     compose_function,
+    chunk_prompt,
 )
 
-# Define the maximum number of tokens
-default_chunk_length = 1500  # TODO: current in characters not tokens
-
-import PyPDF2
 from agentbrowser import navigate_to, get_body_text, create_page
-import tiktoken  # TODO: get rid of this dependency
-
-encoding = "gpt-3.5-turbo-0613"
-
-
-# TODO: function should be reconsidered, some form form of it go to the easycompletion module
-def chunk_text(text, chunk_length=default_chunk_length):
-    sentences = re.split(r"(?<=[.!?])\s+", text)
-    current_chunk = ""
-    text_chunks = []
-    for sentence in sentences:
-        if get_token_length(current_chunk + sentence + " ") <= chunk_length:
-            current_chunk += sentence + " "
-        else:
-            text_chunks.append(current_chunk.strip())
-            current_chunk = sentence + " "
-    if current_chunk:  # If there is any leftover sentence
-        text_chunks.append(current_chunk.strip())
-    return text_chunks
-
-
-# TODO: function should be reconsidered, some form form of it go to the easycompletion module
-def get_token_length(string: str) -> int:
-    """Returns the number of tokens in a text string."""
-    num_tokens = len(tiktoken.encoding_for_model(encoding).encode(string))
-    return num_tokens
 
 
 def get_content_from_url(url):
@@ -54,10 +25,6 @@ def get_content_from_url(url):
     navigate_to(url, page)
 
     body_text = get_body_text(page)
-
-    # write body_text to body_text.txt
-    with open("body_text.txt", "w") as f:
-        f.write(body_text)
 
     return body_text
 
@@ -234,8 +201,6 @@ def summarize_text(text):
         function_call="summarize_text",
     )
 
-    write_debug_file("summarization_debug.txt", text, response)
-
     return response["arguments"]["summary"]
 
 
@@ -257,12 +222,13 @@ def validate_claims(claims):
                 print("Missing key", key)
                 return False
 
+
 def validate_claim(claim, document):
     claim_source = claim["source"]
     if claim_source is None or claim_source == "":
         print("Claim is empty")
         return False
-    
+
     matches = find_near_matches(claim_source, document, max_l_dist=6)
 
     if len(matches) == 0:
@@ -270,8 +236,9 @@ def validate_claim(claim, document):
         return False
     else:
         print("Claim source found in document")
-    
+
     return True
+
 
 def extract_from_chunk(text, document_summary, goal, topics):
     arguments = None
@@ -322,10 +289,10 @@ def extract_from_file_or_url(input_file_or_url, output_file, goal, summary=None)
 
 
 def extract(source, text, output_file, goal, summary=None):
-    text_chunks = chunk_text(text)
+    text_chunks = chunk_prompt(text)
 
     if summary is None:
-        text_chunks_long = chunk_text(text, 10000)
+        text_chunks_long = chunk_prompt(text, 10000)
         summary = summarize_text(text_chunks_long[0])
         # make sure summary is not too long, shouldn't be more than 1200 characters
         if len(summary) > 1200:
@@ -370,11 +337,3 @@ def extract(source, text, output_file, goal, summary=None):
                         claim["debate_question"],
                     ]
                 )
-
-
-def write_debug_file(filename, input, response):
-    response = openai_text_call(text=input)
-
-    debug_text = "Claim Extraction Debug:\n\n" + input + "\n\n" + str(response)
-    with open(filename, "w") as f:
-        f.write(debug_text)

@@ -1,5 +1,4 @@
 from agentbrowser.browser import (
-    create_page,
     navigate_to,
     get_body_text,
 )
@@ -14,108 +13,15 @@ from agentmemory import (
     update_memory,
 )
 
+from constants import (
+    skip_media_types,
+    default_media_domains,
+    default_link_blacklist,
+    default_element_blacklist,
+)
+
 # Global set for deduplication
 crawled_links = set()
-
-keywords = ["artificial intelligence", "existential risk"]
-
-whitelist_urls = [
-    "https://www.lesswrong.com/posts/gEchYntjSXk9KXorK/uncontrollable-ai-as-an-existential-risk",
-]
-
-default_whitelist_domains = ["slatestarcodex.com"]
-
-default_media_domains = [
-    "youtube.com",
-    "facebook.com",
-    "twitter.com",
-    "instagram.com",
-    "tiktok.com",
-    "soundcloud.com",
-    "vimeo.com",
-    "imdb.com",
-]
-
-skip_media_types = [
-    "pdf",
-    "svg",
-    "png",
-    "jpg",
-    "jpeg",
-    "mp3",
-    "mp4",
-    "aif",
-    "wav",
-    "ogg",
-    "mov",
-    "wmv",
-    "zip",
-    "exe",
-    "bin",
-]
-
-link_blacklist = [
-    "home",
-    "next",
-    "about us",
-    "contact",
-    "log in",
-    "account",
-    "sign up",
-    "sign in",
-    "sign out",
-    "privacy policy",
-    "terms of service",
-    "terms and conditions",
-    "terms",
-    "conditions",
-    "privacy",
-    "legal",
-    "guidelines",
-    "filter",
-    "theme",
-    "english",
-    "accessibility",
-    "authenticate",
-    "join",
-    "edition",
-    "subscribe",
-    "news",
-    "home",
-    "blog",
-    "jump to",
-    "español",
-    "world",
-    "europe",
-    "politics",
-    "profile",
-    "election",
-    "health",
-    "business",
-    "tech",
-    "sports",
-]
-
-element_blacklist = [
-    "sidebar",
-    "nav",
-    "footer",
-    "header",
-    "menu",
-    "account",
-    "login",
-    "form",
-    "search",
-    "advertisement",
-    "masthead",
-    "popup",
-    "overlay",
-    "floater",
-    "modal",
-]
-
-
-current_page = None
 
 
 def add_url_entry(
@@ -193,7 +99,16 @@ def merge_relative_paths(url, backlink):
     return url
 
 
-async def crawl(url, depth=0, maximum_depth=3):
+default_options = {
+    "keywords": [],
+    "skip_media_types": skip_media_types,
+    "media_domains": default_media_domains,
+    "link_blacklist": default_link_blacklist,
+    "element_blacklist": default_element_blacklist,
+}
+
+
+async def crawl(url, depth=0, maximum_depth=3, options={}):
     # TODO: if url has a /# at the end of it, remove the /# (and maybe words after until ? etc) to help with dedupe
     # pass in backlink url
 
@@ -210,29 +125,22 @@ async def crawl(url, depth=0, maximum_depth=3):
         add_url_entry(url, url, valid=True, type="media_url", crawled=False)
         return
 
-    global current_page
     # if the url is on the bla
     print("Attempting crawl of url:", url)
     if url_has_been_crawled(url):
         print("Url has already been crawled.")
         return
 
-    if current_page is None:
-        current_page = await create_page()
-    page = await navigate_to(url, current_page)
-    if page is None:
-        print("Error navigating to: " + url)
-        return
-    page_id = get_current_page_id()
+    page = await navigate_to(url)
 
     # check if the body contains any of the keywords
     # if it doesn't return
-    body_text = await get_body_text(page_id)
+    body_text = await get_body_text(page)
 
     title = await page.title()
 
     # if none of the keywords are contained
-    if not any([keyword in body_text for keyword in keywords]):
+    if not any([keyword in body_text for keyword in options["keywords"]]):
         print("Skipping url:", url)
         print("No keywords found in body text.")
         # add the url to the memory
@@ -244,7 +152,7 @@ async def crawl(url, depth=0, maximum_depth=3):
     # also filter out any links where the a element is inside any element that has an id or class which contains any of the element_blacklist items (check all in lowercase)
     # object should be returned like { "text": a.innerText, "href": a.href }
     # pack element_blacklist into a str with commas
-    element_blacklist_str = ",".join(element_blacklist)
+    element_blacklist_str = ",".join(options["element_blacklist"])
 
     # extract links the easy way
     a_elements = await page.querySelectorAll("a")
@@ -275,17 +183,19 @@ async def crawl(url, depth=0, maximum_depth=3):
 
     # extract links the hard way
     body = await page.evaluate("() => document.body.innerHTML")
-    # extract any links from the body, including the inner text
 
     # replace all '\' with ''
     body = body.replace("\n", "").replace("\t", "").replace("\r", "").replace("\\", "")
 
     re_links = re.findall(r'<a.*?href="(.*?)".*?>(.*?)</a>', body)
+
     # for each link, the second value in the tuple is the inner text
     # remove any tags from the inner text
     re_links = [(link[0], re.sub(r"<.*?>", "", link[1])) for link in re_links]
+
     # map re_links to a list of objects with the keys "href" and "text"
     re_links = [{"href": link[0], "text": link[1]} for link in re_links]
+
     # merge a_links and re_links by checking if the href is the same
     # if either doesn't have text, use the other one
     # if href and text is the same, skip
@@ -302,12 +212,9 @@ async def crawl(url, depth=0, maximum_depth=3):
 
     links = await page.evaluate(
         '''() => {
-            // get link_blacklist from python
             const element_blacklist_str = "'''
         + element_blacklist_str
         + """";
-        console.log('element_blacklist_str')
-            console.log(element_blacklist_str)
             // convert to array
             const element_blacklist = element_blacklist_str.split(',');
             function filterLinks(links) {
@@ -373,9 +280,18 @@ async def crawl(url, depth=0, maximum_depth=3):
         await crawl(link["href"], depth=depth + 1)
 
 
+# debug crawling stuff
 # Read initial links from the file and start crawling
-with open("links.txt", "r") as f:
+with open("urls.txt", "r") as f:
     initial_links = f.read().splitlines()
+
+    options = default_options
+    options["keywords"] = [
+        "existential risk",
+        "societal impact",
+        "ai",
+        "artificial intelligence",
+    ]
 
     async def start_crawl():
         tasks = []
@@ -385,8 +301,7 @@ with open("links.txt", "r") as f:
 
             # create a task for each link and append to the tasks list
             for link in links_group:
-                print("crawling: " + link)
-                tasks.append(crawl(link))
+                tasks.append(crawl(link, options=options))
 
             # use asyncio.gather to run all tasks concurrently
             await asyncio.gather(*tasks)

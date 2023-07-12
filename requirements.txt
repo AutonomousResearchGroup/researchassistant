@@ -4,3 +4,4 @@ agentbrowser
 fuzzysearch
 prompt_toolkit
 pyfiglet
+PyPDF2
