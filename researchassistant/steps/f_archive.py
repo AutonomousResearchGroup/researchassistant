@@ -1,6 +1,9 @@
 import os
 from agentmemory import create_memory, wipe_category
 
+def archive(context):
+    return context
+
 def import_archive(
     path_to_archive=None,
     replace_existing=False
