@@ -27,7 +27,7 @@ def get_content_from_pdf(input_file):
             return text
         except PyPDF2.utils.PdfReadError:
             print("Failed to read PDF file.")
-            sys.exit()
+            # sys.exit()
 
 
 def get_content_from_txt(input_file):
@@ -47,4 +47,4 @@ def get_content_from_file(input_file):
             return get_content_from_txt(input_file)
         else:
             print("Invalid input file format. Please provide a URL or a PDF file.")
-            sys.exit()
+            # sys.exit()

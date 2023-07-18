@@ -1,4 +1,4 @@
-from .a_crawl import crawl
+from .a_crawl import main as crawl
 from .b_extract import extract
 from .c_cluster import cluster
 from .d_visualize import visualize

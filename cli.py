@@ -162,6 +162,7 @@ def main():
             with open(f"./project_data/{project_name}.json") as f:
                 project_data = json.load(f)
             start_researchassistant(project_data)
+            # sys.exit(0)
 
 
 if __name__ == "__main__":

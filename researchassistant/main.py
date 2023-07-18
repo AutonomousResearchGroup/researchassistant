@@ -55,7 +55,7 @@ def main(project_data):
     loop_dict = start(
         [
             prepare,
-            # crawl,
+            crawl,
             # extract,
             # cluster,
             # visualize,

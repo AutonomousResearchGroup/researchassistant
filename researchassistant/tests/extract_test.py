@@ -9,7 +9,7 @@ add_topics_to_memory(get_topics_from_csv())
 # get input_file and output_file from sys.argv
 # input_file = (
 #     (len(sys.argv) > 1 and sys.argv[1])
-#     or "https://www.lesswrong.com/posts/gEchYntjSXk9KXorK/uncontrollable-ai-as-an-existential-risk"
+#     or "https://test-page-to-crawl.vercel.app"
 # )
 # output_file = (len(sys.argv) > 2 and sys.argv[2]) or "claims.csv"
 
@@ -17,7 +17,7 @@ goal = "I am researching existential risk and the societal impact of artificial 
 
 
 urls=[
-"https://aiimpacts.org/three-kinds-of-competitiveness/"
+"https://test-page-to-crawl.vercel.app/"
 # "https://www.alignmentforum.org/posts/qYzqDtoQaZ3eDDyxa/distinguishing-ai-takeover-scenarios"
 # "https://www.alignmentforum.org/posts/4kYkYSKSALH4JaQ99/toy-problem-detective-story-alignment"
 # "https://www.alignmentforum.org/posts/4DegbDJJiMX2b3EKm/tai-safety-bibliographic-database"
