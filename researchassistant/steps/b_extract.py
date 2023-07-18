@@ -289,3 +289,7 @@ def extract(source, text, output_file, goal, summary=None):
                         claim["debate_question"],
                     ]
                 )
+
+
+def main(context):
+    

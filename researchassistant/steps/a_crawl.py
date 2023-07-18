@@ -5,7 +5,7 @@ from agentbrowser import (
     async_navigate_to,
     async_get_body_text,
     async_get_body_html,
-    async_get_document_html
+    async_get_document_html,
 )
 
 import json
@@ -124,7 +124,7 @@ def extract_links(html):
     return links
 
 
-async def crawl(url, depth=0, maximum_depth=3, context={}):
+async def crawl(url, context, depth=0, maximum_depth=3):
     # TODO: if url has a /# at the end of it, remove the /# (and maybe words after until ? etc) to help with dedupe
     # pass in backlink url
 
@@ -146,9 +146,8 @@ async def crawl(url, depth=0, maximum_depth=3, context={}):
     if url_has_been_crawled(url):
         print("Url has already been crawled.")
         return
-        
-    async with aiohttp.ClientSession() as session:
 
+    async with aiohttp.ClientSession() as session:
         page = await async_navigate_to(url, None)
 
         # check if the body contains any of the keywords
@@ -163,9 +162,11 @@ async def crawl(url, depth=0, maximum_depth=3, context={}):
 
         if title is None:
             # throw error until we see some edge cases
-            raise Exception("Title is none, skipping url.")
-            # print("Warning! Title is none, using body text instead.")
-            # title = body_text[:10]
+            # raise Exception("Title is none, skipping url.")
+            print("Warning! Title is none, using body text instead.")
+            title = body_text[:10]
+
+        print("context is", context)
 
         # if none of the keywords are contained
         if not any([keyword in body_text for keyword in context["keywords"]]):
@@ -191,11 +192,15 @@ async def crawl(url, depth=0, maximum_depth=3, context={}):
             if isinstance(link, str):
                 link = json.loads(link)
 
-            if not link["url"].startswith("https://") and not link["url"].startswith("http://"):
-                print('*** WARNING! Skipping link because it does not start with "https://" or "http://"')
+            if not link["url"].startswith("https://") and not link["url"].startswith(
+                "http://"
+            ):
+                print(
+                    '*** WARNING! Skipping link because it does not start with "https://" or "http://"'
+                )
                 continue
             print("Crawling link:", link["name"])
-            await crawl(link["url"], depth=depth + 1)
+            await crawl(link["url"], context, depth=depth + 1)
 
 
 def validate_crawl(context):
@@ -206,10 +211,11 @@ def validate_crawl(context):
 
 from traceback import format_exc
 
+
 async def crawl_all_urls(urls, context):
     # Create a coroutine for each url to crawl
-    tasks = [crawl(url, 0, 3, context) for url in urls]
-    
+    tasks = [crawl(url, context) for url in urls]
+
     # Now we run each coroutine
     for task in asyncio.as_completed(tasks):
         try:
@@ -230,9 +236,6 @@ def main(context):
     if not isinstance(urls, list):
         urls = urls.replace(",", "\n").split("\n")
         urls = [url.strip() for url in urls]
-
-    print('urls')
-    print(urls)
 
     async def start_crawl(context):
         await crawl_all_urls(urls, context)
