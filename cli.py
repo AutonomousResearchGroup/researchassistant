@@ -8,6 +8,8 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit import PromptSession
 from termcolor import colored
 
+from researchassistant.main import main as start_researchassistant
+
 style = Style.from_dict(
     {
         "dialog": "bg:#88ff88",
@@ -87,11 +89,6 @@ def save_project_data(name, project_data):
         json.dump(project_data, f)
 
 
-def run(project_data):
-    print(project_data)
-    sys.exit(0)
-
-
 def ensure_project_data_folder():
     os.makedirs("./project_data", exist_ok=True)
 
@@ -135,7 +132,7 @@ def new_or_edit_project(is_editing=False):
     ).run()
 
     if action == "Yes":
-        run(project_data)
+        start_researchassistant(project_data)
 
 
 def main():
@@ -164,8 +161,15 @@ def main():
                 continue
             with open(f"./project_data/{project_name}.json") as f:
                 project_data = json.load(f)
-            run(project_data)
+            start_researchassistant(project_data)
 
 
 if __name__ == "__main__":
-    main()
+    # check for --project flag
+    if len(sys.argv) > 1 and sys.argv[1] == "--project":
+        project_name = sys.argv[2]
+        with open(f"./project_data/{project_name}.json") as f:
+            project_data = json.load(f)
+        start_researchassistant(project_data)
+    else:
+        main()

@@ -40,7 +40,7 @@ summarization_function = compose_function(
             "description": "Is the text relevant to my goal topics?",
         },
     },
-    required_property_names=["summary"],
+    required_properties=["summary"],
 )
 
 summarization_prompt_template = """
@@ -135,7 +135,7 @@ claim_extraction_function = compose_function(
             },
         }
     },
-    required_property_names=["claims"],
+    required_properties=["claims"],
 )
 
 

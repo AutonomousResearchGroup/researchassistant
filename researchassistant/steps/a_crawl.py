@@ -1,9 +1,9 @@
+from agentbrowser import create_page
 from agentbrowser.browser import (
     navigate_to,
     get_body_text,
 )
 
-import asyncio
 import json
 import re
 
@@ -13,7 +13,7 @@ from agentmemory import (
     update_memory,
 )
 
-from constants import (
+from researchassistant.helpers.constants import (
     skip_media_types,
     default_media_domains,
     default_link_blacklist,
@@ -130,8 +130,10 @@ async def crawl(url, depth=0, maximum_depth=3, options={}):
     if url_has_been_crawled(url):
         print("Url has already been crawled.")
         return
+    
+    page = create_page()
 
-    page = await navigate_to(url)
+    page = await navigate_to(url, page)
 
     # check if the body contains any of the keywords
     # if it doesn't return
@@ -280,31 +282,31 @@ async def crawl(url, depth=0, maximum_depth=3, options={}):
         await crawl(link["href"], depth=depth + 1)
 
 
-# debug crawling stuff
-# Read initial links from the file and start crawling
-with open("urls.txt", "r") as f:
-    initial_links = f.read().splitlines()
+# # debug crawling stuff
+# # Read initial links from the file and start crawling
+# with open("urls.txt", "r") as f:
+#     initial_links = f.read().splitlines()
 
-    options = default_options
-    options["keywords"] = [
-        "existential risk",
-        "societal impact",
-        "ai",
-        "artificial intelligence",
-    ]
+#     options = default_options
+#     options["keywords"] = [
+#         "existential risk",
+#         "societal impact",
+#         "ai",
+#         "artificial intelligence",
+#     ]
 
-    async def start_crawl():
-        tasks = []
-        for i in range(0, len(initial_links), 10):
-            # grouping 10 links together
-            links_group = initial_links[i : i + 10]
+#     async def start_crawl():
+#         tasks = []
+#         for i in range(0, len(initial_links), 10):
+#             # grouping 10 links together
+#             links_group = initial_links[i : i + 10]
 
-            # create a task for each link and append to the tasks list
-            for link in links_group:
-                tasks.append(crawl(link, options=options))
+#             # create a task for each link and append to the tasks list
+#             for link in links_group:
+#                 tasks.append(crawl(link, options=options))
 
-            # use asyncio.gather to run all tasks concurrently
-            await asyncio.gather(*tasks)
+#             # use asyncio.gather to run all tasks concurrently
+#             await asyncio.gather(*tasks)
 
-    # create a new asyncio loop
-    asyncio.get_event_loop().run_until_complete(start_crawl())
+#     # create a new asyncio loop
+#     asyncio.get_event_loop().run_until_complete(start_crawl())
