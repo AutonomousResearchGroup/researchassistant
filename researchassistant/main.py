@@ -1,3 +1,4 @@
+import asyncio
 import os
 from dotenv import load_dotenv
 from pyfiglet import Figlet
@@ -38,6 +39,17 @@ def create_prepare_step(project_data):
         # for every key in project data, add it to the context
         for key in project_data:
             context[key] = project_data[key]
+
+
+        loop = None
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        context["event_loop"] = loop
+            
         return context
 
     return prepare

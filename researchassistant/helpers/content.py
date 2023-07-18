@@ -9,6 +9,7 @@ from agentbrowser import async_create_page, async_get_body_text, async_navigate_
 
 async def get_content_from_url(url):
     page = await async_create_page()
+    print("Page is", page)
 
     page = await async_navigate_to(url, page)
 

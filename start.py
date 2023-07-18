@@ -161,8 +161,9 @@ def main():
                 continue
             with open(f"./project_data/{project_name}.json") as f:
                 project_data = json.load(f)
+            # TODO: close the menu and start the app
             start_researchassistant(project_data)
-            # sys.exit(0)
+            break
 
 
 if __name__ == "__main__":

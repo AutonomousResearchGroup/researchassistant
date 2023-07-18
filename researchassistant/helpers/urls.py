@@ -13,7 +13,7 @@ def add_url_entry(url, text, context, type="url", valid=True, crawled=True):
     }
     create_memory(
         "scraped_urls",
-        "url",
+        url,
         url_data,
     )
     if context.get("scraped_urls", None) is None:
@@ -50,15 +50,10 @@ def url_entry_exists(url):
 
 
 def update_url_entry(
-    url, text, valid=True, crawled=True, type="url", category="scraped_urls"
+    id, text, valid=True, crawled=True, type="url", category="scraped_urls"
 ):
-    # get document where text
-
-    memory = get_entry_from_url(url)
-    print("Memory is", memory)
-
     update_memory(
-        category, memory["id"], text, {"valid": valid, "crawled": crawled, "type": type}
+        category, id, text, {"valid": valid, "crawled": crawled, "type": type}
     )
 
 

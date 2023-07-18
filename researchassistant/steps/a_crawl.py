@@ -100,66 +100,68 @@ async def crawl(url, context, depth=0, maximum_depth=3):
         context = add_url_entry(url, url, context, valid=True, type="media_url", crawled=False)
         return
 
-    # if the url is on the bla
-    print("Attempting crawl of url:", url)
     if url_has_been_crawled(url):
         print("Url has already been crawled.")
         return
 
-    async with aiohttp.ClientSession() as session:
-        page = await async_navigate_to(url, None)
+    # if the url is on the bla
+    # print("Attempting crawl of url:", url)
+    # if url_has_been_crawled(url):
+    #     print("Url has already been crawled.")
+    #     return
 
-        # check if the body contains any of the keywords
-        # if it doesn't return
-        body_html = await async_get_body_html(page)
 
-        html = await async_get_document_html(page)
+    page = await async_navigate_to(url, None)
 
-        body_text = await async_get_body_text(page)
+    # check if the body contains any of the keywords
+    # if it doesn't return
+    body_html = await async_get_body_html(page)
 
-        title = extract_page_title(html)
+    html = await async_get_document_html(page)
 
-        if title is None:
-            # throw error until we see some edge cases
-            # raise Exception("Title is none, skipping url.")
-            print("Warning! Title is none, using body text instead.")
-            title = body_text[:10]
+    body_text = await async_get_body_text(page)
 
-        print("context is", context)
+    title = extract_page_title(html)
 
-        # if none of the keywords are contained
-        if not any([keyword in body_text for keyword in context["keywords"]]):
-            print("Skipping url:", url)
-            print("No keywords found in body text.")
-            # add the url to the memory
-            add_url_entry(url, title, context, valid=False, crawled=True)
-            return
+    if title is None:
+        # throw error until we see some edge cases
+        # raise Exception("Title is none, skipping url.")
+        print("Warning! Title is none, using body text instead.")
+        title = body_text[:10]
 
-        # the logic here is that our scraper was too agressive, or the content wasnt loaded directly for some reason
+    # if none of the keywords are contained
+    if not any([keyword in body_text for keyword in context["keywords"]]):
+        print("Skipping url:", url)
+        print("No keywords found in body text.")
+        # add the url to the memory
+        add_url_entry(url, title, context, valid=False, crawled=True)
+        return
 
-        # if we have reached maximum depth, skip
-        if depth > maximum_depth:
-            return
+    # the logic here is that our scraper was too agressive, or the content wasnt loaded directly for some reason
 
-        links = extract_links(body_html)
+    # if we have reached maximum depth, skip
+    if depth > maximum_depth:
+        return
 
-        cache_page(title, body_text, html, links)
-        print('Adding URL to memory: "' + url + '"')
-        add_url_entry(url, title, context, valid=True, crawled=True)
+    links = extract_links(body_html)
 
-        for link in links:
-            if isinstance(link, str):
-                link = json.loads(link)
+    cache_page(title, body_text, html, links)
+    print('Adding URL to memory: "' + url + '"')
+    add_url_entry(url, title, context, valid=True, crawled=True)
 
-            if not link["url"].startswith("https://") and not link["url"].startswith(
-                "http://"
-            ):
-                print(
-                    '*** WARNING! Skipping link because it does not start with "https://" or "http://"'
-                )
-                continue
-            print("Crawling link:", link["name"])
-            context = await crawl(link["url"], context, depth=depth + 1)
+    for link in links:
+        if isinstance(link, str):
+            link = json.loads(link)
+
+        if not link["url"].startswith("https://") and not link["url"].startswith(
+            "http://"
+        ):
+            print(
+                '*** WARNING! Skipping link because it does not start with "https://" or "http://"'
+            )
+            continue
+        print("Crawling link:", link["name"])
+        context = await crawl(link["url"], context, depth=depth + 1)
         return context
 
 
@@ -186,7 +188,6 @@ async def crawl_all_urls(urls, context):
 
 
 def main(context):
-    print("Starting crawl...")
     context["skip_media_types"]: skip_media_types
     context["media_domains"]: default_media_domains
     context["link_blacklist"]: default_link_blacklist
@@ -197,11 +198,11 @@ def main(context):
         urls = urls.replace(",", "\n").split("\n")
         urls = [url.strip() for url in urls]
 
-    async def start_crawl(context):
-        await crawl_all_urls(urls, context)
-
     # context = validate_crawl(context)
+    print("Starting crawl...")
 
-    asyncio.run(start_crawl(context))
+    loop = context["event_loop"]
 
+    loop.run_until_complete(crawl_all_urls(urls, context))
+    print("Crawled")
     return context
