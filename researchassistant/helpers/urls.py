@@ -1,16 +1,16 @@
 from agentmemory import create_memory, get_memories, update_memory
 
 
-def add_url_entry(
-    url,
-    text,
-    context,
-    type="url",
-    valid=True,
-    crawled=True
-):
+def add_url_entry(url, text, context, type="url", valid=True, crawled=True):
     project_name = context["project_name"]
-    url_data = {"text": text, "url": url, "type": type, "project_name": project_name, "valid": valid, "crawled": crawled}
+    url_data = {
+        "text": text,
+        "url": url,
+        "type": type,
+        "project_name": project_name,
+        "valid": valid,
+        "crawled": crawled,
+    }
     create_memory(
         "scraped_urls",
         "url",
@@ -42,7 +42,7 @@ def get_url_entries(context, valid=None, crawled=None):
     # if any values in dict are None, remove
     dict = {k: v for k, v in dict.items() if v is not None}
     return get_memories("scraped_urls", filter_metadata=dict)
-    
+
 
 def url_entry_exists(url):
     memory = get_entry_from_url(url)
@@ -52,8 +52,13 @@ def url_entry_exists(url):
 def update_url_entry(
     url, text, valid=True, crawled=True, type="url", category="scraped_urls"
 ):
+    # get document where text
+
+    memory = get_entry_from_url(url)
+    print("Memory is", memory)
+
     update_memory(
-        category, url, text, {"valid": valid, "crawled": crawled, "type": type}
+        category, memory["id"], text, {"valid": valid, "crawled": crawled, "type": type}
     )
 
 
