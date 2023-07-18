@@ -1,7 +1,7 @@
 from agentmemory import create_memory, get_memories, update_memory
 
 
-def add_url_entry(url, text, context, type="url", valid=True, crawled=True):
+def add_url_entry(url, text, context, type="url", backlink=None, valid=True, crawled=True):
     project_name = context["project_name"]
     url_data = {
         "text": text,
@@ -11,6 +11,9 @@ def add_url_entry(url, text, context, type="url", valid=True, crawled=True):
         "valid": valid,
         "crawled": crawled,
     }
+    if backlink is not None:
+        url_data["backlink"] = backlink
+
     create_memory(
         "scraped_urls",
         url,
@@ -35,18 +38,12 @@ def get_url_entries(context, valid=None, crawled=None):
         return get_memories("scraped_urls")
     dict = {
         "valid": valid,
-        # TODO: we need to update agentmemory to enable these
-        # "crawled": crawled,
-        # "project_name": project_name
+        "crawled": crawled,
+        "project_name": project_name
     }
     # if any values in dict are None, remove
-    dict = {k: v for k, v in dict.items() if v is not None}
+    dict = {k: str(v) for k, v in dict.items() if v is not None}
     return get_memories("scraped_urls", filter_metadata=dict)
-
-
-def url_entry_exists(url):
-    memory = get_entry_from_url(url)
-    return memory is not None
 
 
 def update_url_entry(

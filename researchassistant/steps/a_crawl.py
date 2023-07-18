@@ -1,5 +1,5 @@
 import asyncio
-import aiohttp
+from urllib.parse import urljoin
 
 from agentbrowser import (
     async_navigate_to,
@@ -83,33 +83,31 @@ def extract_links(html):
     return links
 
 
-async def crawl(url, context, depth=0, maximum_depth=3):
-    # TODO: if url has a /# at the end of it, remove the /# (and maybe words after until ? etc) to help with dedupe
-    # pass in backlink url
+async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
+    # if we have reached maximum depth, skip
+    if depth > maximum_depth:
+        return
+    
+    if url_has_been_crawled(url):
+        print("Url has already been crawled.")
+        return
 
     # skip_media_types is a list of file extensions to skip
     # if the url ends with any of the file extensions, skip it
     if any([url.endswith("." + ext) for ext in skip_media_types]):
         print("Skipping url:", url)
-        context = add_url_entry(url, url, context, valid=True, type="media", crawled=False)
+        context = add_url_entry(
+            url, url, context, valid=True, type="media", crawled=False
+        )
         return
 
     # if the url includes youtube.com in the domain, return
     if any([media_url in url for media_url in default_media_domains]):
         print("Skipping media domain:", url)
-        context = add_url_entry(url, url, context, valid=True, type="media_url", crawled=False)
+        context = add_url_entry(
+            url, url, context, valid=True, type="media_url", crawled=False
+        )
         return
-
-    if url_has_been_crawled(url):
-        print("Url has already been crawled.")
-        return
-
-    # if the url is on the bla
-    # print("Attempting crawl of url:", url)
-    # if url_has_been_crawled(url):
-    #     print("Url has already been crawled.")
-    #     return
-
 
     page = await async_navigate_to(url, None)
 
@@ -137,32 +135,29 @@ async def crawl(url, context, depth=0, maximum_depth=3):
         add_url_entry(url, title, context, valid=False, crawled=True)
         return
 
-    # the logic here is that our scraper was too agressive, or the content wasnt loaded directly for some reason
-
-    # if we have reached maximum depth, skip
-    if depth > maximum_depth:
-        return
-
     links = extract_links(body_html)
 
     cache_page(title, body_text, html, links)
     print('Adding URL to memory: "' + url + '"')
-    add_url_entry(url, title, context, valid=True, crawled=True)
+    add_url_entry(url, title, context, backlink=backlink, valid=True, crawled=True)
+
+    valid_links = []
 
     for link in links:
         if isinstance(link, str):
             link = json.loads(link)
 
-        if not link["url"].startswith("https://") and not link["url"].startswith(
-            "http://"
-        ):
-            print(
-                '*** WARNING! Skipping link because it does not start with "https://" or "http://"'
-            )
+        # skip common hrefs that don't lead anywhere
+        if link["url"] in ["#", "", "/"]:
             continue
+
+        link = urljoin(url, link["url"])
+        valid_links.append(valid_links)
+
         print("Crawling link:", link["name"])
-        context = await crawl(link["url"], context, depth=depth + 1)
-        return context
+    context = await crawl_all_urls(valid_links, context, backlink)
+    return context
+
 
 
 def validate_crawl(context):
@@ -174,9 +169,9 @@ def validate_crawl(context):
 from traceback import format_exc
 
 
-async def crawl_all_urls(urls, context):
+async def crawl_all_urls(urls, context, backlink=None):
     # Create a coroutine for each url to crawl
-    tasks = [crawl(url, context) for url in urls]
+    tasks = [crawl(url, context, backlink) for url in urls]
 
     # Now we run each coroutine
     for task in asyncio.as_completed(tasks):

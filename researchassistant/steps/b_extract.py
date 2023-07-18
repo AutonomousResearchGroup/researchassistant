@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from fuzzysearch import find_near_matches
 
 from researchassistant.helpers.content import get_content_from_file
+from researchassistant.helpers.files import ensure_dir_exists
 from researchassistant.helpers.topics import format_topics, search_topics
 from researchassistant.helpers.urls import get_url_entries, update_url_entry
 
@@ -20,54 +21,9 @@ from easycompletion import (
 
 from agentbrowser import async_init_browser
 
-import PyPDF2
 from dotenv import load_dotenv
+
 load_dotenv()
-
-from agentbrowser import async_create_page, async_get_body_text, async_navigate_to
-
-
-async def get_content_from_url(url):
-    page = await async_create_page()
-    
-    page = await async_navigate_to(url, page)
-
-    body_text = await async_get_body_text(page)
-
-    return body_text
-
-
-def get_content_from_pdf(input_file):
-    with open(input_file, "rb") as f:
-        try:
-            pdf_reader = PyPDF2.PdfReader(f)
-            text = ""
-            for i in range(len(pdf_reader.pages)):
-                text += pdf_reader.pages[i].extract_text()
-            return text
-        except PyPDF2.utils.PdfReadError:
-            print("Failed to read PDF file.")
-            # sys.exit()
-
-
-def get_content_from_txt(input_file):
-    with open(input_file, "r") as f:
-        text = f.read()
-        return text
-
-
-async def get_content_from_file(input_file):
-    if input_file.startswith("http"):
-        text = await get_content_from_url(input_file)
-        return text
-    else:
-        if input_file.endswith(".pdf"):
-            return get_content_from_pdf(input_file)
-        elif input_file.endswith(".txt"):
-            return get_content_from_txt(input_file)
-        else:
-            print("Invalid input file format. Please provide a URL or a PDF file.")
-            # sys.exit()
 
 
 async def extract_from_file_or_url(
@@ -82,7 +38,7 @@ def extract(source, text, output_file, research_topic, summary=None):
 
     if summary is None:
         text_chunks_long = trim_prompt(text, 10000)
-        summary = "This is a website about aliens and AI" # summarize_text(text_chunks_long)
+        summary = summarize_text(text_chunks_long)
         summary = trim_prompt(summary, 1024)
 
     topics = format_topics(search_topics(summary))
@@ -143,7 +99,9 @@ async def async_main(context):
 
     tasks = []
     for url in urls:
-        update_url_entry(url['id'], url["document"], valid=url["metadata"]["valid"], crawled=True)
+        update_url_entry(
+            url["id"], url["document"], valid=url["metadata"]["valid"], crawled=True
+        )
         clean_url = (
             url["document"]
             .replace("https://", "")
@@ -167,7 +125,7 @@ async def async_main(context):
             context.get("summary", None),
         )
         tasks.append(task)
-    await asyncio.gather(*tasks)        
+    await asyncio.gather(*tasks)
     return context
 
 
@@ -370,9 +328,3 @@ def extract_from_chunk(text, document_summary, research_topic, topics):
     arguments = response["arguments"]
 
     return arguments["claims"]
-
-
-def ensure_dir_exists(file_path):
-    directory = os.path.dirname(file_path)
-    if not os.path.exists(directory):
-        os.makedirs(directory)

@@ -2,6 +2,7 @@ import sys
 
 import PyPDF2
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from agentbrowser import async_create_page, async_get_body_text, async_navigate_to
