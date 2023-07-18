@@ -3,11 +3,13 @@ import csv
 import os
 from dotenv import load_dotenv
 from fuzzysearch import find_near_matches
+import hashlib
+import re
 
 from researchassistant.helpers.content import get_content_from_file
 from researchassistant.helpers.files import ensure_dir_exists
 from researchassistant.helpers.topics import format_topics, search_topics
-from researchassistant.helpers.urls import get_url_entries, update_url_entry
+from researchassistant.helpers.urls import get_url_entries, update_url_entry, url_to_filename
 
 load_dotenv()
 
@@ -88,6 +90,8 @@ def extract(source, text, output_file, research_topic, summary=None):
                 )
 
 
+
+
 async def async_main(context):
     await async_init_browser()
     urls = get_url_entries(context, valid=True, crawled=False)
@@ -99,27 +103,25 @@ async def async_main(context):
 
     tasks = []
     for url in urls:
+        clean_url = url_to_filename(url["document"])
         update_url_entry(
             url["id"], url["document"], valid=url["metadata"]["valid"], crawled=True
         )
-        clean_url = (
-            url["document"]
-            .replace("https://", "")
-            .replace("http://", "")
-            .replace("www.", "")
-            .replace(":", "")
-            .replace(";", "")
-            .replace("/", "_")
-            .replace("?", "_")
-            .replace("=", "_")
-            .replace("&", "_")
-        )
-        filepath = project_dir + "/" + clean_url + ".csv"
 
-        print("filepath")
-        print(filepath)
+        # check if body exists
+        path = project_dir + "/" + clean_url + "/" + "body.txt"
+        if not os.path.exists(path):
+            path = url["document"]
+
+        filepath = project_dir + "/" + clean_url + "/" + "facts.csv"
+
+        # if filepath already exists, throw a warning
+        if os.path.exists(filepath):
+            print("Warning! File already exists:", filepath)
+            continue
+
         task = extract_from_file_or_url(
-            url["document"],
+            path,
             filepath,
             context["research_topic"],
             context.get("summary", None),

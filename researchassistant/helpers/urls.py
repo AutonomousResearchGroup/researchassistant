@@ -1,5 +1,19 @@
+import hashlib
+import re
 from agentmemory import create_memory, get_memories, update_memory
 
+def url_to_filename(url):
+    # Removing http/https part to make the filename shorter
+    url = re.sub(r'^https?:\/\/', '', url)
+    
+    # Removing or replacing non-alphanumeric characters
+    url = re.sub(r'[^a-zA-Z0-9]', '_', url)
+
+    # If URL is too long, hash it to ensure it fits and it's still unique
+    if len(url) > 32:
+        url = hashlib.md5(url.encode()).hexdigest()[:32]
+
+    return url
 
 def add_url_entry(url, text, context, type="url", backlink=None, valid=True, crawled=True):
     project_name = context["project_name"]
