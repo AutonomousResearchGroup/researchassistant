@@ -11,50 +11,16 @@ from agentbrowser import (
 import json
 from bs4 import BeautifulSoup
 
-from agentmemory import (
-    create_memory,
-    get_memories,
-    update_memory,
-)
-
 from researchassistant.helpers.constants import (
     skip_media_types,
     default_media_domains,
     default_link_blacklist,
     default_element_blacklist,
 )
+from researchassistant.helpers.urls import add_url_entry, url_has_been_crawled
 
 # Global set for deduplication
 crawled_links = set()
-
-
-def add_url_entry(
-    url, text, valid=True, crawled=True, type="url", category="scraped_urls"
-):
-    create_memory(
-        category,
-        url,
-        {"text": text, "url": url, "type": type, "valid": valid, "crawled": crawled},
-    )
-
-
-def get_entry_from_url(url):
-    memory = get_memories("scraped_urls", filter_metadata={"url": url})
-    memory = memory[0] if len(memory) > 0 else None
-    return memory
-
-
-def url_entry_exists(url):
-    memory = get_entry_from_url(url)
-    return memory is not None
-
-
-def update_url_entry(
-    url, text, valid=True, crawled=True, type="url", category="scraped_urls"
-):
-    update_memory(
-        category, url, {"text": text, "valid": valid, "crawled": crawled, "type": type}
-    )
 
 
 def extract_page_title(html):
@@ -64,13 +30,6 @@ def extract_page_title(html):
         return title_tag.string
     else:
         return None
-
-
-def url_has_been_crawled(url):
-    memory = get_entry_from_url(url)
-    if memory is None:
-        return False
-    return memory["metadata"]["crawled"]
 
 
 def cache_page(title, body_text, html, links):
@@ -132,13 +91,13 @@ async def crawl(url, context, depth=0, maximum_depth=3):
     # if the url ends with any of the file extensions, skip it
     if any([url.endswith("." + ext) for ext in skip_media_types]):
         print("Skipping url:", url)
-        add_url_entry(url, url, valid=True, type="media", crawled=False)
+        context = add_url_entry(url, url, context, valid=True, type="media", crawled=False)
         return
 
     # if the url includes youtube.com in the domain, return
     if any([media_url in url for media_url in default_media_domains]):
         print("Skipping media domain:", url)
-        add_url_entry(url, url, valid=True, type="media_url", crawled=False)
+        context = add_url_entry(url, url, context, valid=True, type="media_url", crawled=False)
         return
 
     # if the url is on the bla
@@ -173,7 +132,7 @@ async def crawl(url, context, depth=0, maximum_depth=3):
             print("Skipping url:", url)
             print("No keywords found in body text.")
             # add the url to the memory
-            add_url_entry(url, title, valid=False, crawled=True)
+            add_url_entry(url, title, context, valid=False, crawled=True)
             return
 
         # the logic here is that our scraper was too agressive, or the content wasnt loaded directly for some reason
@@ -186,7 +145,7 @@ async def crawl(url, context, depth=0, maximum_depth=3):
 
         cache_page(title, body_text, html, links)
         print('Adding URL to memory: "' + url + '"')
-        add_url_entry(url, title, valid=True, crawled=True)
+        add_url_entry(url, title, context, valid=True, crawled=True)
 
         for link in links:
             if isinstance(link, str):
@@ -200,7 +159,8 @@ async def crawl(url, context, depth=0, maximum_depth=3):
                 )
                 continue
             print("Crawling link:", link["name"])
-            await crawl(link["url"], context, depth=depth + 1)
+            context = await crawl(link["url"], context, depth=depth + 1)
+        return context
 
 
 def validate_crawl(context):

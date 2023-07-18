@@ -4,15 +4,15 @@ import PyPDF2
 from dotenv import load_dotenv
 load_dotenv()
 
-from agentbrowser import navigate_to, get_body_text, create_page
+from agentbrowser import async_create_page, async_get_body_text, async_navigate_to
 
 
-def get_content_from_url(url):
-    page = create_page()
+async def get_content_from_url(url):
+    page = await async_create_page()
 
-    navigate_to(url, page)
+    page = await async_navigate_to(url, page)
 
-    body_text = get_body_text(page)
+    body_text = await async_get_body_text(page)
 
     return body_text
 
@@ -36,9 +36,9 @@ def get_content_from_txt(input_file):
         return text
 
 
-def get_content_from_file(input_file):
+async def get_content_from_file(input_file):
     if input_file.startswith("http"):
-        text = get_content_from_url(input_file)
+        text = await get_content_from_url(input_file)
         return text
     else:
         if input_file.endswith(".pdf"):

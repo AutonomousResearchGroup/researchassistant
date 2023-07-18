@@ -1,5 +1,5 @@
 from .a_crawl import main as crawl
-from .b_extract import extract
+from .b_extract import main as extract
 from .c_cluster import cluster
 from .d_visualize import visualize
 from .e_archive import archive

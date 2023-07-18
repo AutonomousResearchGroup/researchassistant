@@ -56,7 +56,7 @@ def main(project_data):
         [
             prepare,
             crawl,
-            # extract,
+            extract,
             # cluster,
             # visualize,
             # archive,
