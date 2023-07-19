@@ -9,9 +9,12 @@ def url_to_filename(url):
     # Removing or replacing non-alphanumeric characters
     url = re.sub(r'[^a-zA-Z0-9]', '_', url)
 
+    # get the domain from the url, basically everything before the first /
+    domain = url.split("/")[0]
+
     # If URL is too long, hash it to ensure it fits and it's still unique
     if len(url) > 32:
-        url = hashlib.md5(url.encode()).hexdigest()[:32]
+        url = domain + hashlib.md5(url.encode()).hexdigest()[:32]
 
     return url
 
@@ -44,6 +47,9 @@ def get_entry_from_url(url):
     memory = memory[0] if len(memory) > 0 else None
     return memory
 
+def get_url_entries(context):
+    project_name = context["project_name"]
+    return get_memories("scraped_urls", filter_metadata={"project_name": project_name})
 
 def get_url_entries(context, valid=None, crawled=None):
     project_name = context["project_name"]

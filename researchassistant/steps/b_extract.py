@@ -9,7 +9,11 @@ import re
 from researchassistant.helpers.content import get_content_from_file
 from researchassistant.helpers.files import ensure_dir_exists
 from researchassistant.helpers.topics import format_topics, search_topics
-from researchassistant.helpers.urls import get_url_entries, update_url_entry, url_to_filename
+from researchassistant.helpers.urls import (
+    get_url_entries,
+    update_url_entry,
+    url_to_filename,
+)
 
 load_dotenv()
 
@@ -83,18 +87,16 @@ def extract(source, text, output_file, research_topic, summary=None):
                         claim["claim"],
                         claim["relevant"],
                         claim_is_valid,
-                        claim["topic"],
-                        claim["subtopic"],
-                        claim["debate_question"],
+                        claim.get("topic", None),
+                        claim.get("subtopic"),
+                        claim.get("debate_question"),
                     ]
                 )
 
 
-
-
 async def async_main(context):
     await async_init_browser()
-    urls = get_url_entries(context, valid=True, crawled=False)
+    urls = get_url_entries(context, valid=True, crawled=True)
     project_dir = context.get("project_dir", None)
     if project_dir is None:
         project_dir = "./project_data/" + context["project_name"]
@@ -133,7 +135,8 @@ async def async_main(context):
 
 def main(context):
     loop = context["event_loop"]
-    loop.run_until_complete(async_main(context))
+    context = loop.run_until_complete(async_main(context))
+    return context
 
 
 summarization_function = compose_function(

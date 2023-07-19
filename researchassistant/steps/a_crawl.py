@@ -48,7 +48,7 @@ def cache_page(url, context, title, body_text, html, body_html, links):
 
     # write title, body_text to body.txt
     with open(page_dir + "/body.txt", "w") as f:
-        f.write(title + "\n\n")
+        print("Writing body text to file.")
         f.write(body_text)
 
     # new new csv file called meta.csv
@@ -170,17 +170,16 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
     valid_links = []
 
     for link in links:
-        if isinstance(link, str):
-            link = json.loads(link)
-
         # skip common hrefs that don't lead anywhere
         if link["url"] in ["#", "", "/"]:
             continue
 
-        link = urljoin(url, link["url"])
-        valid_links.append(valid_links)
-
+        link["url"] = urljoin(url, link["url"])
+        valid_links.append(link)
+        print("link is")
+        print(link)
         print("Crawling link:", link["name"])
+    print("crawling ", valid_links)
     context = await crawl_all_urls(valid_links, context, backlink)
     return context
 
