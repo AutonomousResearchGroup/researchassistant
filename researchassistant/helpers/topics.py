@@ -1,27 +1,5 @@
-from io import StringIO
 from agentmemory import create_memory, search_memory
-import pandas as pd
 
-def get_topics_from_csv(filename="topics.csv"):
-    # Read the csv file
-    df = pd.read_csv(filename)
-
-    # Remove duplicates
-    df = df.drop_duplicates()
-
-    # create a write buffer to write the csv data to
-    write_buffer = StringIO()
-
-    # Save to a new csv file
-    df.to_csv(write_buffer, index=False)
-    
-    # get the csv data from the write buffer
-    topics_file = write_buffer.getvalue()
-
-    # topic headers are Topic,Subtopic in the first row
-    topics = topics_file.split("\n")
-    topic_rows = topics[1:]
-    return topic_rows
 
 def add_topics_to_memory(topic_rows):
     out_topic_rows = []
@@ -32,8 +10,10 @@ def add_topics_to_memory(topic_rows):
         subtopic = ",".join(topic_row_values[1:])
 
         out_topic_rows.append({"topic": topic, "subtopic": subtopic})
-        create_memory("topics", topic+": " + subtopic, {"topic": topic, "subtopic": subtopic})
-    
+        create_memory(
+            "topics", topic + ": " + subtopic, {"topic": topic, "subtopic": subtopic}
+        )
+
     # sort topic rows alphabetically by topic
     out_topic_rows = sorted(out_topic_rows, key=lambda k: k["topic"])
 
@@ -53,10 +33,12 @@ def format_topics(topic_rows):
     for topic_row in topic_rows:
         topic_row_topic = topic_row["metadata"]["topic"]
         topic_row_subtopic = topic_row["metadata"]["subtopic"]
-        topic_subtopics.append({"topic": topic_row_topic, "subtopic": topic_row_subtopic})
-    
+        topic_subtopics.append(
+            {"topic": topic_row_topic, "subtopic": topic_row_subtopic}
+        )
+
     topic_subtopics.sort(key=lambda k: k["topic"])
-    
+
     topics_text = ""
     current_topic = ""
     for topic_row in topic_subtopics:
@@ -74,7 +56,11 @@ def format_topics(topic_rows):
             topics_text += "Topic: " + '"' + topic_row["topic"] + '"' + "\n"
             topics_text += "Subtopics: "
             current_topic = topic_row["topic"]
-        if(topic_row["subtopic"] and topic_row["subtopic"] is not None and topic_row["subtopic"] != ""):
+        if (
+            topic_row["subtopic"]
+            and topic_row["subtopic"] is not None
+            and topic_row["subtopic"] != ""
+        ):
             # replace all newlines in subtopic with , and space
             subtopic = topic_row["subtopic"].replace("\n", ", ")
             topics_text += '"' + subtopic + '", '
