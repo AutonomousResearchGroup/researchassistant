@@ -5,7 +5,7 @@ from pyfiglet import Figlet
 from rich.console import Console
 
 from agentloop import start, stop
-from agentevents import (
+from agentmemory import (
     increment_epoch,
 )
 

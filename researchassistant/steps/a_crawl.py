@@ -2,10 +2,12 @@ import asyncio
 import os
 from urllib.parse import urljoin
 
+from researchassistant.helpers.documents import split_document
 from agentbrowser import (
     async_navigate_to,
     async_get_body_text,
     async_get_body_html,
+    async_create_page,
     async_get_document_html,
 )
 
@@ -50,6 +52,12 @@ def cache_page(url, context, title, body_text, html, body_html, links):
     with open(page_dir + "/body.txt", "w") as f:
         print("Writing body text to file.")
         f.write(body_text)
+
+    body_text_sentences = split_document(body_text)
+
+    with open(page_dir + "/body-sentences.txt", "w") as f:
+        print("Writing body text sentences to file.")
+        f.write("\n".join(body_text_sentences))
 
     # new new csv file called meta.csv
     # url, title, meta, linked_from
@@ -135,7 +143,9 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
         )
         return
 
-    page = await async_navigate_to(url, None)
+    page = await async_create_page(url)
+
+    page = await async_navigate_to(url, page)
 
     # check if the body contains any of the keywords
     # if it doesn't return

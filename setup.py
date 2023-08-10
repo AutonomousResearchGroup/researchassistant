@@ -9,6 +9,9 @@ with open("README.md", "r") as fh:
     # now join all the lines back together
     long_description = '\n'.join(long_description)
     
+# open the requirements.txt and load as a list
+with open('./requirements.txt') as f:
+    required = f.read().splitlines()
 
 setup(
     name='researchassistant',
@@ -21,7 +24,7 @@ setup(
     author_email='shawmakesmagic@gmail.com',
     license='MIT',
     packages=['researchassistant'],
-    install_requires=['agentmemory', 'easycompletion'],
+    install_requires=required,
     readme = "README.md",
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',

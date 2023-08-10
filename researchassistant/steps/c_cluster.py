@@ -5,6 +5,7 @@ from researchassistant.helpers.urls import get_url_entries, url_to_filename
 
 
 def cluster(context):
+    return context
     print("Clustering...")
     print(context)
     create_project_dir(context)
