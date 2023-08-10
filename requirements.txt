@@ -6,3 +6,5 @@ fuzzysearch
 prompt_toolkit
 pyfiglet
 PyPDF2
+wtpsplit
+fuzzywuzzy

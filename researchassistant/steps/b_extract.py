@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from fuzzysearch import find_near_matches
 import hashlib
 import re
+from fuzzywuzzy import fuzz
 
 from researchassistant.helpers.content import get_content_from_file
 from researchassistant.helpers.files import ensure_dir_exists
@@ -52,6 +53,17 @@ def extract(source, text, output_file, research_topic, summary=None):
     # convert output_file to absolute path
     output_file = os.path.abspath(output_file)
     print("output file is", output_file)
+    with open(output_file, "a") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(
+                [
+                    "Input",
+                    "Source",
+                    "Claim",
+                    "Relevant",
+                    "In Source Text",
+                ]
+            )
 
     ensure_dir_exists(output_file)
     for i, text_chunk in enumerate(text_chunks):
@@ -65,33 +77,15 @@ def extract(source, text, output_file, research_topic, summary=None):
             print("Validating claim", k, "of", len(claims))
             claim_is_valid = validate_claim(claim, text_chunk)
             print("Writing to file", output_file)
-            with open(output_file, "a") as csvfile:
-                writer = csv.writer(csvfile)
-                if k == 0:
-                    writer.writerow(
-                        [
-                            "Input",
-                            "Source",
-                            "Claim",
-                            "Relevant",
-                            "In Source Text",
-                            "Topic",
-                            "Subtopic",
-                            "Debate Question",
-                        ]
-                    )
-                writer.writerow(
-                    [
-                        source,
-                        claim["source"],
-                        claim["claim"],
-                        claim["relevant"],
-                        claim_is_valid,
-                        claim.get("topic", None),
-                        claim.get("subtopic"),
-                        claim.get("debate_question"),
-                    ]
-                )
+            writer.writerow(
+                [
+                    source,
+                    claim["source"],
+                    claim["claim"],
+                    claim["relevant"],
+                    claim_is_valid,
+                ]
+            )
 
 
 async def async_main(context):
@@ -141,30 +135,18 @@ def main(context):
 
 summarization_function = compose_function(
     name="summarize_text",
-    description="Summarize the text. Include the topic, subtopics.",
+    description="Summarize the text and decide if the article is relevant to the research topic.",
     properties={
         "summary": {
             "type": "string",
-            "description": "Detailed summary of the text.",
-        },
-        "topic": {
-            "type": "string",
-            "description": "Primary, broad topic.",
-        },
-        "subtopic": {
-            "type": "string",
-            "description": "Specific subtopic.",
-        },
-        "explanation": {
-            "type": "string",
-            "description": "Explanation of why the text is or isn't relevant to my research_topic topics.",
+            "description": "Detailed summary of the text, along with an explanation of why the text is or isn't relevant.",
         },
         "relevant": {
             "type": "boolean",
-            "description": "Is the text relevant to my research_topic topics?",
+            "description": "Is the text relevant to the research topic?",
         },
     },
-    required_properties=["summary", "topic", "subtopic", "explanation", "relevant"],
+    required_properties=["summary", "relevant"],
 )
 
 summarization_prompt_template = """
@@ -173,23 +155,15 @@ I have the following document
 {{text}}
 ```
 
-I am a researcher with the following research_topic:
+I am a researcher with the following research topic:
 {{research_topic}}
 
-Please do the following:
-- Determine if the topic is relevant to the research_topic topics
-- Determine the closest topic and subtopic from the provided list
-- Summarize the document
-- Explain why the document is relevant to the research_topic topics
-Please summarize the document, classify the topic and subtopic, determine if the document is relevant to my research_topic topics and explain why it is or isn't relevant."
+Please summarize the document and determine if the document is relevant to the research topic. In your summary, explain why it is or isn't relevant."
 """
 
 claim_extraction_prompt_template = """\
-I am a researcher with the following research_topic:
+I am a researcher with the following research topic:
 {{research_topic}}
-
-My list of topics and subtopics:
-{{topics}}
 
 Summary of the full document:
 {{summary}}
@@ -205,25 +179,21 @@ TASK: Extract claims from the currect section I am working on.
 - DO NOT just of use pronouns or shorthand like 'he' or 'they' in claims. Use the actual complete name of the person or thing you are referring to and be very detailed and specific.
 - Claims should include extensive detail so that they can stand alone without the source text. This includes detailed descriptions of who, what and when.
 - ALWAYS use the full name and title of people along with any relationship to organizations. For example, instead of 'the president', use 'Current U.S. President Joe Biden'. Do not use nicknames or short names when referring to people. Instead of "Mayor Pete", use "Pete Buttigieg".
-- Ignore anything that isn't relevant to the topics and research_topic, including political opinions, feelings, and rhetoric. We are only interested in claims that are factual, i.e. can be proven or disproven.
+- Ignore anything that isn't relevant to the research topic, including political opinions, feelings, and rhetoric. We are only interested in claims that are factual, i.e. can be proven or disproven.
 - Please disambiguate and fully describe known entities. For example, instead of 'Kim the Rocketman', use 'North Korean leader Kim Jong Un'. Instead of 'the 2016 election', use 'the 2016 U.S. presidential election'.
 - Split claims up into specific statements, even if the source text has combined the claims into a single statement. There can be multiple claims for a source. For example, if a source sentence makes multiple claims, these should be separated
-- Write a debate question which the claim would be most relevant to. Ideally the question is one which the claim directly answers or at least in which the claim is foundational to another claim.
 
 Output should be formatted as an array of claims, which each have the following structure:
 [{
     source: string # "The exact source text referenced in the claim",
     claim: string # "The factual claim being made in the source text",
-    relevant: boolean # Is the claim relevant to the research_topic topics and summary?
-    debate_question: string # A debate question which the claim is relevant to or which the claim directly answers.
-    topic: string # The most appropriate topic from the topic list
-    subtopic: string # The most appropriate subtopic from the subtopic list, given the topic
+    relevant: boolean # Is the claim relevant to the research topic and summary?
 }, {...}]
 """
 
 claim_extraction_function = compose_function(
     name="extract_claims",
-    description="Extract all factual claims from the section of text. From the list of topics and subtopics, choose the most appropriate one for each claim. If the claim is not relevant to the research_topic topics, set 'relevant' to False, if it is relevant set it to True. Also include a debate question which the claim would be most relevant to.",
+    description="Extract all factual claims from the section of text.",
     properties={
         "claims": {
             "type": "array",
@@ -241,19 +211,7 @@ claim_extraction_function = compose_function(
                     },
                     "relevant": {
                         "type": "boolean",
-                        "description": "Determine whether this claim is relevant to the research_topic topics. If it is not relevant, set this to False, otherwise set it to True.",
-                    },
-                    "debate_question": {
-                        "type": "string",
-                        "description": "A debate question which the claim is relevant to. Ideally the question is one which the claim directly answers or at least in which the claim is foundational to another claim.",
-                    },
-                    "topic": {
-                        "type": "string",
-                        "description": "The topic. For example, 'AI Training and Deployment'.",
-                    },
-                    "subtopic": {
-                        "type": "string",
-                        "description": "The subtopic. For example, 'New Definitions of Benefits'.",
+                        "description": "Determine whether this claim is relevant to the research topic. If it is not relevant, set this to False, otherwise set it to True.",
                     },
                 },
             },
@@ -281,16 +239,13 @@ def summarize_text(text):
 
 
 def validate_claims(claims):
-    # check to make sure that arguments has source, claim, relevant, debate_question, topic, subtopic
+    # check to make sure that arguments has source, claim, relevant
     # if the keys are missing, return false
     for claim in claims:
         for key in [
             "source",
             "claim",
             "relevant",
-            "debate_question",
-            "topic",
-            "subtopic",
         ]:
             if key not in claim:
                 print("Missing key", key)
@@ -303,15 +258,24 @@ def validate_claim(claim, document):
         print("Claim is empty")
         return False
 
-    matches = find_near_matches(claim_source, document, max_l_dist=6)
+    matches = find_near_matches(claim_source, document, max_l_dist=8, max_substitutions=10, max_insertions=10, max_deletions=10)
 
     if len(matches) == 0:
         print("Claim source not found in document")
+        
+        sentences = document.split('.')
+        for sentence in sentences:
+            similarity_ratio = fuzz.token_set_ratio(claim_source, sentence)
+            if similarity_ratio >= 90:
+                print("Claim source found in document with 90% similarity")
+                return True
+        
         return False
     else:
         print("Claim source found in document")
 
     return True
+
 
 
 def extract_from_chunk(text, document_summary, research_topic, topics):
