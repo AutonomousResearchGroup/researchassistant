@@ -9,7 +9,9 @@ from agentmemory import (
     increment_epoch,
 )
 
-from researchassistant.steps import crawl, extract, cluster, visualize, archive
+from researchassistant.crawl import crawl
+from researchassistant.extract import extract
+# from researchassistant.cluster import cluster
 
 # Suppress warning
 os.environ["TOKENIZERS_PARALLELISM"] = "False"
@@ -69,7 +71,7 @@ def main(project_data):
             prepare,
             crawl,
             extract,
-            cluster,
+            # cluster,
             # visualize,
             # archive,
             finish
