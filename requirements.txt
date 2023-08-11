@@ -3,6 +3,7 @@ agentloop
 easycompletion
 agentbrowser
 fuzzysearch
+python-Levenshtein
 prompt_toolkit
 pyfiglet
 PyPDF2

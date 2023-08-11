@@ -1,3 +1,8 @@
+from collections import Counter
+
+import fuzzysearch
+
+
 def validate_claims(claims):
     # check to make sure that arguments has source, claim, relevant
     # if the keys are missing, return false
@@ -18,7 +23,7 @@ def validate_claim(claim, document):
         print("Claim is empty")
         return False
 
-    matches = find_near_matches(
+    matches = fuzzysearch.find_near_matches(
         claim_source,
         document,
         max_l_dist=8,
@@ -31,10 +36,19 @@ def validate_claim(claim, document):
         print("Claim source not found in document")
         sentences = document.split(".")
         for sentence in sentences:
-            similarity_ratio = fuzz.token_set_ratio(claim_source, sentence)
+            sentence = sentence.lower()
+            claim_source_lower = claim_source.lower()
+            # regex replace all non alphanumeric characters in claim_source_lower
+            claim_source_lower = "".join(
+                [c for c in claim_source_lower if c.isalnum() or c == " "]
+            )
+            # same for sentences
+            sentence = "".join([c for c in sentence if c.isalnum() or c == " "])
+            
+            similarity_ratio = fuzzysearch.token_set_ratio(claim_source_lower, sentence)
             if similarity_ratio >= 90:
                 print("Claim source found in document with 90% similarity")
-                claim_words = Counter(claim_source.split())
+                claim_words = Counter(claim_source_lower.split())
                 sentence_words = Counter(sentence.split())
                 common_words = sum((claim_words & sentence_words).values())
                 total_words = sum(claim_words.values())

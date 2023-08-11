@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+from dotenv import load_dotenv
 from prompt_toolkit.shortcuts import button_dialog
 from prompt_toolkit.styles import Style
 from prompt_toolkit.key_binding import KeyBindings
@@ -8,6 +9,7 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit import PromptSession
 from termcolor import colored
 
+load_dotenv()
 from researchassistant.main import main as start_researchassistant
 
 style = Style.from_dict(

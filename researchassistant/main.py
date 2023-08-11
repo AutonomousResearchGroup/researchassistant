@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from pyfiglet import Figlet
 from rich.console import Console
 
+load_dotenv()  # take environment variables from .env.
+
 from agentloop import start, stop
 from agentmemory import (
     increment_epoch,
@@ -11,12 +13,11 @@ from agentmemory import (
 
 from researchassistant.crawl import crawl
 from researchassistant.extract import extract
-# from researchassistant.cluster import cluster
+from researchassistant.cluster import cluster
 
 # Suppress warning
 os.environ["TOKENIZERS_PARALLELISM"] = "False"
 
-load_dotenv()  # take environment variables from .env.
 
 
 def print_logo():
@@ -71,7 +72,7 @@ def main(project_data):
             prepare,
             crawl,
             extract,
-            # cluster,
+            cluster,
             # visualize,
             # archive,
             finish

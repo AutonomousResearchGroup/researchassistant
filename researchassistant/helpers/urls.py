@@ -1,13 +1,22 @@
 import hashlib
+import os
 import re
 from agentmemory import create_memory, get_memories, update_memory
 
+
+def merge_relative_paths(url, backlink):
+    # TODO: if url is relative, get backlink and combine
+
+    # TODO: if link is hard /, get domain of backlink and combine
+    return url
+
+
 def url_to_filename(url):
     # Removing http/https part to make the filename shorter
-    url = re.sub(r'^https?:\/\/', '', url)
-    
+    url = re.sub(r"^https?:\/\/", "", url)
+
     # Removing or replacing non-alphanumeric characters
-    url = re.sub(r'[^a-zA-Z0-9]', '_', url)
+    url = re.sub(r"[^a-zA-Z0-9]", "_", url)
 
     # get the domain from the url, basically everything before the first /
     domain = url.split("/")[0]
@@ -18,7 +27,10 @@ def url_to_filename(url):
 
     return url
 
-def add_url_entry(url, text, context, type="url", backlink=None, valid=True, crawled=True):
+
+def add_url_entry(
+    url, text, context, type="url", backlink=None, valid=True, crawled=True
+):
     project_name = context["project_name"]
     url_data = {
         "text": text,
@@ -47,20 +59,18 @@ def get_entry_from_url(url):
     memory = memory[0] if len(memory) > 0 else None
     return memory
 
+
 def get_url_entries(context):
     project_name = context["project_name"]
     return get_memories("scraped_urls", filter_metadata={"project_name": project_name})
+
 
 def get_url_entries(context, valid=None, crawled=None):
     project_name = context["project_name"]
     # if valid and crawled are none, return all
     if valid is None and crawled is None:
         return get_memories("scraped_urls")
-    dict = {
-        "valid": valid,
-        "crawled": crawled,
-        "project_name": project_name
-    }
+    dict = {"valid": valid, "crawled": crawled, "project_name": project_name}
     # if any values in dict are None, remove
     dict = {k: str(v) for k, v in dict.items() if v is not None}
     return get_memories("scraped_urls", filter_metadata=dict)
@@ -74,8 +84,25 @@ def update_url_entry(
     )
 
 
-def url_has_been_crawled(url):
+def url_has_been_crawled(url, context):
     memory = get_entry_from_url(url)
-    if memory is None:
+    if memory is not None:
+        return memory["metadata"]["crawled"]
+
+    clean_url = url_to_filename(url)
+    # check that cache folder exists
+    project_dir = context.get("project_dir", None)
+    if project_dir is None:
+        project_dir = "./project_data/" + context["project_name"]
+        os.makedirs(project_dir, exist_ok=True)
+        context["project_dir"] = project_dir
+
+    page_dir = project_dir + "/" + clean_url
+    # check if page_dir exists, if not return False
+    if not os.path.exists(page_dir):
         return False
-    return memory["metadata"]["crawled"]
+    # check if body.txt exists
+    if not os.path.exists(page_dir + "/body.txt"):
+        return False
+    # body.txt exists, so the file has been scraped
+    return True

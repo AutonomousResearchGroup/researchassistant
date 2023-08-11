@@ -1,7 +1,7 @@
 import asyncio
 import os
 from urllib.parse import urljoin
-
+from traceback import format_exc
 from researchassistant.helpers.documents import split_document
 from agentbrowser import (
     async_navigate_to,
@@ -20,19 +20,15 @@ from researchassistant.helpers.constants import (
     default_link_blacklist,
     default_element_blacklist,
 )
-from researchassistant.helpers.urls import add_url_entry, url_has_been_crawled, url_to_filename
+from researchassistant.helpers.html import extract_links, extract_page_title
+from researchassistant.helpers.urls import (
+    add_url_entry,
+    url_has_been_crawled,
+    url_to_filename,
+)
 
 # Global set for deduplication
 crawled_links = set()
-
-
-def extract_page_title(html):
-    soup = BeautifulSoup(html, "html.parser")
-    title_tag = soup.title
-    if title_tag:
-        return title_tag.string
-    else:
-        return None
 
 
 def cache_page(url, context, title, body_text, html, body_html, links):
@@ -55,7 +51,7 @@ def cache_page(url, context, title, body_text, html, body_html, links):
 
     body_text_sentences = split_document(body_text)
 
-    with open(page_dir + "/body-sentences.txt", "w") as f:
+    with open(page_dir + "/body_sentences.txt", "w") as f:
         print("Writing body text sentences to file.")
         f.write("\n".join(body_text_sentences))
 
@@ -83,46 +79,12 @@ def cache_page(url, context, title, body_text, html, body_html, links):
     return
 
 
-def cache_media(url):
-    # check that cache folder exists
-
-    # create a folder for the url, remove http, https, :, /, ? etc replace all special characters with _
-
-    # check inside that for a media folder
-
-    # download file
-
-    # hash it
-
-    # rename file to <filename>_<hash>.<ext>
-    return
-
-
-def merge_relative_paths(url, backlink):
-    # TODO: if url is relative, get backlink and combine
-
-    # TODO: if link is hard /, get domain of backlink and combine
-    return url
-
-
-def extract_links(html):
-    soup = BeautifulSoup(html, "html.parser")
-
-    links = []
-    for a_tag in soup.find_all("a"):
-        # Check if the link has non-blank text and an href attribute
-        if a_tag.text.strip() and a_tag.get("href"):
-            links.append({"name": a_tag.text, "url": a_tag.get("href")})
-
-    return links
-
-
 async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
     # if we have reached maximum depth, skip
     if depth > maximum_depth:
         return
-    
-    if url_has_been_crawled(url):
+
+    if url_has_been_crawled(url, context):
         print("Url has already been crawled.")
         return
 
@@ -192,16 +154,6 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
     print("crawling ", valid_links)
     context = await crawl_all_urls(valid_links, context, backlink)
     return context
-
-
-
-def validate_crawl(context):
-    # TODO: scan the project directory for any already-scraped urls
-    # maybe we need to just use memory for this and then we can pull this from memory into context here
-    return context
-
-
-from traceback import format_exc
 
 
 async def crawl_all_urls(urls, context, backlink=None):
