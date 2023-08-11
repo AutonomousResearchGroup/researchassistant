@@ -6,10 +6,17 @@ Research a topic in-depth and make it searchable
 
 # Usage
 
-CLI Usage:
+### CLI:
 
-```
+```sh
 python3 start.py
+```
+
+### Testing:
+
+```sh
+python -m pip install pytest
+python -m pytest test.py
 ```
 
 # Modules
