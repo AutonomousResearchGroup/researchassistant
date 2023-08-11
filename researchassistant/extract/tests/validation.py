@@ -1,14 +1,4 @@
-from researchassistant.extract.validation import validate_claims, validate_claim
-
-def test_validate_claims():
-    claims_valid = [{"source": "source1", "claim": "claim1", "relevant": "relevant1"},
-                    {"source": "source2", "claim": "claim2", "relevant": "relevant2"}]
-
-    claims_invalid_key = [{"source": "source1", "claim": "claim1"},
-                          {"source": "source2", "claim": "claim2", "relevant": "relevant2"}]
-
-    assert validate_claims(claims_valid) is not False
-    assert validate_claims(claims_invalid_key) is False
+from researchassistant.extract.validation import validate_claim
 
 def test_validate_claim_empty_source():
     claim_empty_source = {"source": "", "claim": "claim1", "relevant": "relevant1"}

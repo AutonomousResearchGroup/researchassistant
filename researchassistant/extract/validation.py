@@ -3,20 +3,6 @@ from collections import Counter
 import fuzzysearch
 
 
-def validate_claims(claims):
-    # check to make sure that arguments has source, claim, relevant
-    # if the keys are missing, return false
-    for claim in claims:
-        for key in [
-            "source",
-            "claim",
-            "relevant",
-        ]:
-            if key not in claim:
-                print("Missing key", key)
-                return False
-
-
 def validate_claim(claim, document):
     claim_source = claim["source"]
     if claim_source is None or claim_source == "":
