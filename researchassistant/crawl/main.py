@@ -2,7 +2,7 @@ import asyncio
 import os
 from urllib.parse import urljoin
 from traceback import format_exc
-from researchassistant.helpers.documents import split_document
+from researchassistant.shared.documents import split_document
 from agentbrowser import (
     async_navigate_to,
     async_get_body_text,
@@ -14,14 +14,14 @@ from agentbrowser import (
 import json
 from bs4 import BeautifulSoup
 
-from researchassistant.helpers.constants import (
+from researchassistant.shared.constants import (
     skip_media_types,
     default_media_domains,
     default_link_blacklist,
     default_element_blacklist,
 )
-from researchassistant.helpers.html import extract_links, extract_page_title
-from researchassistant.helpers.urls import (
+from researchassistant.shared.html import extract_links, extract_page_title
+from researchassistant.shared.urls import (
     add_url_entry,
     url_has_been_crawled,
     url_to_filename,

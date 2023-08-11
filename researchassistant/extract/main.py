@@ -6,10 +6,10 @@ from fuzzysearch import find_near_matches
 from fuzzywuzzy import fuzz
 from collections import Counter
 
-from researchassistant.helpers.content import get_content_from_file
-from researchassistant.helpers.files import ensure_dir_exists
-from researchassistant.helpers.topics import format_topics, search_topics
-from researchassistant.helpers.urls import (
+from researchassistant.shared.content import get_content_from_file
+from researchassistant.shared.files import ensure_dir_exists
+from researchassistant.shared.topics import format_topics, search_topics
+from researchassistant.shared.urls import (
     get_url_entries,
     update_url_entry,
     url_to_filename,

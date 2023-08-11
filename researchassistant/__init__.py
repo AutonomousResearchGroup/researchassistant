@@ -11,10 +11,10 @@ __credits__ = "https://github.com/lalalune/researchassistant"
 from .cluster import *
 from .extract import *
 from .crawl import *
-from .helpers import *
+from .shared import *
 
 __all__ = [
-    "helpers",
+    "shared",
     "cluster",
     "extract",
     "crawl",
