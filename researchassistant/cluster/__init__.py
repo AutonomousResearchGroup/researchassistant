@@ -1,3 +1,3 @@
-from .main import cluster
+from .main import main as cluster
 
 __all__ = ['cluster']

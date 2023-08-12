@@ -78,7 +78,7 @@ def split_and_combine(text):
 
 def add_claim_to_memory(claim, document_id):
     claim_source = claim["source"]
-    paragraphs = get_memories("paragraph", {"document_id": document_id})
+    paragraphs = get_memories("paragraphs", {"document_id": document_id})
     # find the paragraph that contains the claim
     for paragraph in paragraphs:
         if claim_source in paragraph["text"]:
@@ -91,7 +91,7 @@ def add_claim_to_memory(claim, document_id):
 
 
 def extract(source, text, output_file, research_topic):
-    document_id = create_memory("document", text, {"source": source})
+    document_id = create_memory("documents", text, {"source": source})
 
     text_chunks = chunk_prompt(text)
 
@@ -108,7 +108,7 @@ def extract(source, text, output_file, research_topic):
     # for each paragraph, create a paragraph memory
     for paragraph in paragraphs:
         create_memory(
-            "paragraph", paragraph, {"source": source, "document_id": document_id, "author": author, "date": date}
+            "paragraphs", paragraph, {"source": source, "document_id": document_id, "author": author, "date": date}
         )
 
     summary = trim_prompt(summary, 1024)
@@ -195,8 +195,7 @@ async def async_main(context):
         task = extract_from_file_or_url(
             path,
             filepath,
-            context["research_topic"],
-            context.get("summary", None),
+            context["research_topic"]
         )
         tasks.append(task)
     await asyncio.gather(*tasks)
