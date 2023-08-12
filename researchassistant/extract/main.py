@@ -1,10 +1,9 @@
 import asyncio
 import csv
 import os
+from agentmemory import create_memory, get_memories
 from dotenv import load_dotenv
-from fuzzysearch import find_near_matches
-from fuzzywuzzy import fuzz
-from collections import Counter
+from researchassistant.extract.validation import validate_claim
 
 from researchassistant.shared.content import get_content_from_file
 from researchassistant.shared.files import ensure_dir_exists
@@ -15,12 +14,18 @@ from researchassistant.shared.urls import (
     url_to_filename,
 )
 
+from researchassistant.extract.prompts import (
+    summarization_prompt_template,
+    summarization_function,
+    claim_extraction_prompt_template,
+    claim_extraction_function,
+)
+
 load_dotenv()
 
 from easycompletion import (
     openai_function_call,
     compose_prompt,
-    compose_function,
     chunk_prompt,
     trim_prompt,
 )
@@ -33,25 +38,85 @@ load_dotenv()
 
 
 async def extract_from_file_or_url(
-    input_file_or_url, output_file, research_topic, summary=None
+    input_file_or_url, output_file, research_topic
 ):
     text = await get_content_from_file(input_file_or_url)
-    return extract(input_file_or_url, text, output_file, research_topic, summary)
+    return extract(input_file_or_url, text, output_file, research_topic)
 
 
-def extract(source, text, output_file, research_topic, summary=None):
+def split_and_combine(text):
+    # Normalize double newlines to single newlines
+    text = text.replace("\n\n", "\n")
+
+    # Split the text into paragraphs
+    paragraphs = text.split("\n")
+
+    # Combine paragraphs into segments of under 800 words
+    segments = []
+    current_segment = ""
+    current_word_count = 0
+
+    for paragraph in paragraphs:
+        paragraph_word_count = len(paragraph.split())
+
+        # Check if adding the paragraph would exceed the word limit
+        if current_word_count + paragraph_word_count < 800:
+            current_segment += paragraph + "\n"
+            current_word_count += paragraph_word_count
+        else:
+            # Start a new segment if the limit would be exceeded
+            segments.append(current_segment.strip())
+            current_segment = paragraph + "\n"
+            current_word_count = paragraph_word_count
+
+    # Append the last segment if it's not empty
+    if current_segment:
+        segments.append(current_segment.strip())
+
+    return segments
+
+
+def add_claim_to_memory(claim, document_id):
+    claim_source = claim["source"]
+    paragraphs = get_memories("paragraph", {"document_id": document_id})
+    # find the paragraph that contains the claim
+    for paragraph in paragraphs:
+        if claim_source in paragraph["text"]:
+            claim["paragraph_id"] = paragraph["id"]
+            break
+
+    # create a claim memory
+    create_memory("claim", claim["debate_question"] + " " + claim["claim"], claim)
+    return True
+
+
+def extract(source, text, output_file, research_topic):
+    document_id = create_memory("document", text, {"source": source})
+
     text_chunks = chunk_prompt(text)
 
-    if summary is None:
-        text_chunks_long = trim_prompt(text, 10000)
-        summary = summarize_text(text_chunks_long)
-        summary = trim_prompt(summary, 1024)
+    text_chunks_long = trim_prompt(text, 10000)
+    document_summary_and_metadata = summarize_text(text_chunks_long)
+    summary = document_summary_and_metadata["summary"]
+    relevant = document_summary_and_metadata["relevant"]
+    author = document_summary_and_metadata["author"]
+    date = document_summary_and_metadata["date"]
+
+    # date contains the year, month, and day as integers
+    # if no date but url, we should use algorithm to check url on wayback machine for first if url
+    paragraphs = split_and_combine(text)
+    # for each paragraph, create a paragraph memory
+    for paragraph in paragraphs:
+        create_memory(
+            "paragraph", paragraph, {"source": source, "document_id": document_id, "author": author, "date": date}
+        )
+
+    summary = trim_prompt(summary, 1024)
 
     topics = format_topics(search_topics(summary))
 
     # convert output_file to absolute path
     output_file = os.path.abspath(output_file)
-    print("output file is", output_file)
     with open(output_file, "a") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(
@@ -60,21 +125,32 @@ def extract(source, text, output_file, research_topic, summary=None):
                 "Source",
                 "Claim",
                 "Relevant",
-                "In Source Text",
+                "Author",
+                "Debate Question",
             ]
         )
 
     ensure_dir_exists(output_file)
+    if author == "None" or author == "none":
+        author = ""
     for i, text_chunk in enumerate(text_chunks):
         print("Extracting from chunk", i, "of", len(text_chunks))
         print(text_chunk)
-        claims = extract_from_chunk(text_chunk, summary, research_topic, topics)
+        claims = extract_from_chunk(text_chunk, summary, research_topic, topics, author)
+        # check that claim[0] has all the values filled in for metadata
+        if (len(claims) == 0) or (claims[0] is None):
+            print("Warning, no claims extracted from chunk")
+            continue
         for k in range(len(claims)):
             claim = claims[k]
             if claim is None:
                 continue
             print("Validating claim", k, "of", len(claims))
             claim_is_valid = validate_claim(claim, text_chunk)
+            if claim_is_valid is False:
+                print('WARNING: Skipping claim, invalid')
+                continue
+            add_claim_to_memory(claim, document_id)
             print("Writing to file", output_file)
             writer.writerow(
                 [
@@ -82,7 +158,8 @@ def extract(source, text, output_file, research_topic, summary=None):
                     claim["source"],
                     claim["claim"],
                     claim["relevant"],
-                    claim_is_valid,
+                    claim["author"],
+                    claim["debate_question"],
                 ]
             )
 
@@ -146,18 +223,23 @@ def summarize_text(text):
         function_call="summarize_text",
     )
 
-    return response["arguments"]["summary"]
+    return response["arguments"]
 
 
-def extract_from_chunk(text, document_summary, research_topic, topics):
-    text_prompt = compose_prompt(
-        claim_extraction_prompt_template,
-        {
+def extract_from_chunk(text, document_summary, research_topic, topics, author=None):
+    dictionary = {
             "research_topic": research_topic,
             "summary": document_summary,
             "topics": topics,
             "text": text,
-        },
+        }
+    if author:
+        dictionary["author"] = " The author of this document is " + author
+    else:
+        dictionary["author"] = ""
+    text_prompt = compose_prompt(
+        claim_extraction_prompt_template,
+        dictionary,
     )
 
     response = openai_function_call(

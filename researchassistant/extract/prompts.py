@@ -1,6 +1,9 @@
+from easycompletion import compose_function
+
+
 summarization_function = compose_function(
     name="summarize_text",
-    description="Summarize the text and decide if the article is relevant to the research topic.",
+    description="Summarize the text and decide if the article is relevant to the research topic. Determine the author and when the article was written if these are available in the text, otherwise enter 'None' for these values.",
     properties={
         "summary": {
             "type": "string",
@@ -10,8 +13,30 @@ summarization_function = compose_function(
             "type": "boolean",
             "description": "Is the text relevant to the research topic?",
         },
+        "author": {
+            "type": "string",
+            "description": "Who is the author of the text? If the author is not known, enter 'None'.",
+        },
+        "date": {
+            "type": "object",
+            "description": 'Extract the date that the text was written. If one of the values (field or month) is not known, write 0. For example, if the text was written in 2020, but the month and day are not known, write "year": 2020, "month": 0, "day": 0.',
+            "properties": {
+                "year": {
+                    "type": "integer",
+                    "description": "Year the text was written (1900-2023 or 0 if unknown)",
+                },
+                "month": {
+                    "type": "integer",
+                    "description": "Month the text was written. (1-12 or 0 if unknown)",
+                },
+                "day": {
+                    "type": "integer",
+                    "description": "Day the text was written. (1-31 or 0 if unkonwn)",
+                },
+            },
+        },
     },
-    required_properties=["summary", "relevant"],
+    required_properties=["summary", "relevant", "author", "date"],
 )
 
 summarization_prompt_template = """
@@ -29,6 +54,8 @@ Please summarize the document and determine if the document is relevant to the r
 claim_extraction_prompt_template = """\
 I am a researcher with the following research topic:
 {{research_topic}}
+
+I am extracting claims from a document. {{author}}
 
 Summary of the full document:
 {{summary}}
@@ -53,6 +80,8 @@ Output should be formatted as an array of claims, which each have the following 
     source: string # "The exact source text referenced in the claim",
     claim: string # "The factual claim being made in the source text",
     relevant: boolean # Is the claim relevant to the research topic and summary?
+    debate_question: string # "A debate question which the claim would be a viewpoint in. Ideally the question is one which the claim directly answers or at least in which the claim is foundational to another claim."
+    author: string # "Who is the author of the claim, i.e. the person who is stating it? If the character is fictional or the claim is hypothetical, write 'None'. If the claim is a quote, the author is the person being quoted. If the claim is a statement by the author of the article then it is probably them."
 }, {...}]
 """
 
@@ -78,6 +107,14 @@ claim_extraction_function = compose_function(
                         "type": "boolean",
                         "description": "Determine whether this claim is relevant to the research topic. If it is not relevant, set this to False, otherwise set it to True.",
                     },
+                    "author": {
+                        "type": "string",
+                        "description": "Who is the author of the claim, i.e. the person who is stating it? String or 'None' if not sure. The article author should be assumed if that is known and the claim is not a quote.",
+                    },
+                    "debate_question": {
+                        "type": "string",
+                        "description": "A debate question which the claim is relevant to or answers directly.",
+                    }
                 },
             },
         }

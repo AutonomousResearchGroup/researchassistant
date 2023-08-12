@@ -12,7 +12,6 @@ from agentbrowser import (
 )
 
 import json
-from bs4 import BeautifulSoup
 
 from researchassistant.shared.constants import (
     skip_media_types,
