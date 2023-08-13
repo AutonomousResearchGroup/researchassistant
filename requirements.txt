@@ -11,3 +11,5 @@ openai-whisper
 yt_dlp
 wtpsplit
 fuzzywuzzy
+matplotlib
+beautifulsoup4
