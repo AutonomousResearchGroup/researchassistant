@@ -89,9 +89,6 @@ def extract(source, text, research_topic):
 
     document_metadata = document["metadata"]
 
-    print('document_metadata["status"]')
-    print(document_metadata["status"])
-
     if document_metadata["status"] == "extracted":
         print("WARNING: Already extracted: " + source)
         return
@@ -142,6 +139,8 @@ def extract(source, text, research_topic):
     relevant = document_metadata.get("relevant", None)
     author = document_metadata.get("author", None)
     date = document_metadata.get("date", None)
+
+    # if date is 0,0,0 -- lets try to get the date from the wayback machine
 
     if author == "None" or author == "none" or author is None:
         author = ""

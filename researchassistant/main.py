@@ -73,8 +73,6 @@ def main(project_data):
             crawl,
             extract,
             cluster,
-            # visualize,
-            # archive,
             finish
             ]
     )

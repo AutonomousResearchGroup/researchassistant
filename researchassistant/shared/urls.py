@@ -87,7 +87,5 @@ def update_url_entry(
 def url_has_been_crawled(url, context):
     documents = get_memories("documents", filter_metadata={"source": url})
     if len(documents) > 0:
-        print('******************** URL FOUND')
-        print(documents)
         return True
     return False

@@ -1,4 +1,5 @@
 import asyncio
+import json
 from urllib.parse import urljoin
 from traceback import format_exc
 
@@ -83,24 +84,25 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
 
     links = extract_links(body_html)
 
-    print("body_text")
-    print(body_text)
+    # convert links to a list
+    links = list(links)
 
-    create_memory(
-        "documents",
-        body_text,
-        {
+    metadata = {
             "title": title,
             "document_html": html,
             "body_html": body_html,
             "text": body_text,
             "source": url,
-            "links": links,
+            "links": json.dumps(links),
             "status": "crawled",
-        },
+        }
+    
+    create_memory(
+        "documents",
+        body_text,
+        metadata,
     )
 
-    print('Adding URL to memory: "' + url + '"')
     add_url_entry(url, title, context, backlink=backlink, valid=True, crawled=True)
 
     valid_links = []
@@ -112,10 +114,6 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
 
         link["url"] = urljoin(url, link["url"])
         valid_links.append(link)
-        print("link is")
-        print(link)
-        print("Crawling link:", link["name"])
-    print("crawling ", valid_links)
     context = await crawl_all_urls(valid_links, context, backlink)
     return context
 
