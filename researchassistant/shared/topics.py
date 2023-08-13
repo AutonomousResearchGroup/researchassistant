@@ -17,13 +17,6 @@ def add_topics_to_memory(topic_rows):
     # sort topic rows alphabetically by topic
     out_topic_rows = sorted(out_topic_rows, key=lambda k: k["topic"])
 
-
-def search_topics(search_text):
-    # search memory for this
-    # if it exists, return the topic and subtopic
-    return search_memory("topics", search_text, n_results=20)
-
-
 def format_topics(topic_rows):
     # set a topics_text variable with the topics and subtopics as a string
     # for each topic, create a new line with Topic: <topic>, Subtopics: <subtopics>

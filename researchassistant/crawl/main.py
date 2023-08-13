@@ -1,8 +1,8 @@
 import asyncio
-import os
 from urllib.parse import urljoin
 from traceback import format_exc
-from researchassistant.shared.documents import split_document
+
+from agentmemory import create_memory
 from agentbrowser import (
     async_navigate_to,
     async_get_body_text,
@@ -10,8 +10,6 @@ from agentbrowser import (
     async_create_page,
     async_get_document_html,
 )
-
-import json
 
 from researchassistant.shared.constants import (
     skip_media_types,
@@ -23,59 +21,10 @@ from researchassistant.shared.html import extract_links, extract_page_title
 from researchassistant.shared.urls import (
     add_url_entry,
     url_has_been_crawled,
-    url_to_filename,
 )
 
 # Global set for deduplication
 crawled_links = set()
-
-
-def cache_page(url, context, title, body_text, html, body_html, links):
-    clean_url = url_to_filename(url)
-    # check that cache folder exists
-    project_dir = context.get("project_dir", None)
-    if project_dir is None:
-        project_dir = "./project_data/" + context["project_name"]
-        os.makedirs(project_dir, exist_ok=True)
-        context["project_dir"] = project_dir
-
-    page_dir = project_dir + "/" + clean_url
-    # save the html to raw.html
-    os.makedirs(page_dir, exist_ok=True)
-
-    # write title, body_text to body.txt
-    with open(page_dir + "/body.txt", "w") as f:
-        print("Writing body text to file.")
-        f.write(body_text)
-
-    body_text_sentences = split_document(body_text)
-
-    with open(page_dir + "/body_sentences.txt", "w") as f:
-        print("Writing body text sentences to file.")
-        f.write("\n".join(body_text_sentences))
-
-    # new new csv file called meta.csv
-    # url, title, meta, linked_from
-    with open(page_dir + "/meta.csv", "w") as f:
-        f.write("url,title,meta,linked_from\n")
-        f.write(url + "," + title)
-
-    # save links to links.csv
-    with open(page_dir + "/links.csv", "w") as f:
-        f.write("name,url\n")
-        for link in links:
-            if isinstance(link, str):
-                link = json.loads(link)
-            f.write(link["name"] + "," + link["url"] + "\n")
-
-    # save html to raw.html
-    with open(page_dir + "/document.html", "w") as f:
-        f.write(html)
-
-    with open(page_dir + "/body.html", "w") as f:
-        f.write(body_html)
-
-    return
 
 
 async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
@@ -134,7 +83,23 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
 
     links = extract_links(body_html)
 
-    cache_page(url, context, title, body_text, html, body_html, links)
+    print("body_text")
+    print(body_text)
+
+    create_memory(
+        "documents",
+        body_text,
+        {
+            "title": title,
+            "document_html": html,
+            "body_html": body_html,
+            "text": body_text,
+            "source": url,
+            "links": links,
+            "status": "crawled",
+        },
+    )
+
     print('Adding URL to memory: "' + url + '"')
     add_url_entry(url, title, context, backlink=backlink, valid=True, crawled=True)
 

@@ -1,6 +1,7 @@
 from collections import Counter
 
 import fuzzysearch
+from fuzzywuzzy import fuzz
 
 
 def validate_claim(claim, document):
@@ -31,7 +32,7 @@ def validate_claim(claim, document):
             # same for sentences
             sentence = "".join([c for c in sentence if c.isalnum() or c == " "])
             
-            similarity_ratio = fuzzysearch.token_set_ratio(claim_source_lower, sentence)
+            similarity_ratio = fuzz.token_set_ratio(claim_source_lower, sentence)
             if similarity_ratio >= 90:
                 print("Claim source found in document with 90% similarity")
                 claim_words = Counter(claim_source_lower.split())

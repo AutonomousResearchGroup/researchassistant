@@ -7,7 +7,6 @@ load_dotenv()
 
 from agentbrowser import async_create_page, async_get_body_text, async_navigate_to
 
-
 async def get_content_from_url(url):
     page = await async_create_page()
     print("Page is", page)

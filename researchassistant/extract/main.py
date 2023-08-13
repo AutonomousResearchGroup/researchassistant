@@ -1,13 +1,12 @@
 import asyncio
 import csv
+import json
 import os
-from agentmemory import create_memory, get_memories
+from agentmemory import create_memory, get_memories, update_memory
 from dotenv import load_dotenv
 from researchassistant.extract.validation import validate_claim
 
-from researchassistant.shared.content import get_content_from_file
 from researchassistant.shared.files import ensure_dir_exists
-from researchassistant.shared.topics import format_topics, search_topics
 from researchassistant.shared.urls import (
     get_url_entries,
     update_url_entry,
@@ -32,16 +31,7 @@ from easycompletion import (
 
 from agentbrowser import async_init_browser
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
-
-async def extract_from_file_or_url(
-    input_file_or_url, output_file, research_topic
-):
-    text = await get_content_from_file(input_file_or_url)
-    return extract(input_file_or_url, text, output_file, research_topic)
+PARAGRAPH_LENGTH = 400
 
 
 def split_and_combine(text):
@@ -60,7 +50,7 @@ def split_and_combine(text):
         paragraph_word_count = len(paragraph.split())
 
         # Check if adding the paragraph would exceed the word limit
-        if current_word_count + paragraph_word_count < 800:
+        if current_word_count + paragraph_word_count < PARAGRAPH_LENGTH:
             current_segment += paragraph + "\n"
             current_word_count += paragraph_word_count
         else:
@@ -78,65 +68,85 @@ def split_and_combine(text):
 
 def add_claim_to_memory(claim, document_id):
     claim_source = claim["source"]
-    paragraphs = get_memories("paragraphs", {"document_id": document_id})
+    claim["document_id"] = document_id
+    paragraphs = get_memories("paragraphs", filter_metadata={"document_id": document_id})
     # find the paragraph that contains the claim
     for paragraph in paragraphs:
-        if claim_source in paragraph["text"]:
+        if claim_source in paragraph["document"]:
+            # TODO: fuzzy match claims are failing
             claim["paragraph_id"] = paragraph["id"]
             break
 
     # create a claim memory
-    create_memory("claim", claim["debate_question"] + " " + claim["claim"], claim)
+    create_memory("claims", claim["debate_question"] + " " + claim["claim"], claim)
     return True
 
 
-def extract(source, text, output_file, research_topic):
-    document_id = create_memory("documents", text, {"source": source})
+def extract(source, text, research_topic):
+    document = get_memories("documents", filter_metadata={"source": source})
+    document = document[0]
+    document_id = document["id"]
+
+    document_metadata = document["metadata"]
+
+    print('document_metadata["status"]')
+    print(document_metadata["status"])
+
+    if document_metadata["status"] == "extracted":
+        print("WARNING: Already extracted: " + source)
+        return
 
     text_chunks = chunk_prompt(text)
 
-    text_chunks_long = trim_prompt(text, 10000)
-    document_summary_and_metadata = summarize_text(text_chunks_long)
-    summary = document_summary_and_metadata["summary"]
-    relevant = document_summary_and_metadata["relevant"]
-    author = document_summary_and_metadata["author"]
-    date = document_summary_and_metadata["date"]
+    if document_metadata["status"] != "summarized":
+        text_chunks_long = trim_prompt(text, 10000)
+        document_summary_and_metadata = summarize_text(text_chunks_long)
+        summary = document_summary_and_metadata["summary"]
+        relevant = document_summary_and_metadata["relevant"]
+        author = document_summary_and_metadata["author"]
+        date = document_summary_and_metadata["date"]
 
-    # date contains the year, month, and day as integers
-    # if no date but url, we should use algorithm to check url on wayback machine for first if url
-    paragraphs = split_and_combine(text)
-    # for each paragraph, create a paragraph memory
-    for paragraph in paragraphs:
-        create_memory(
-            "paragraphs", paragraph, {"source": source, "document_id": document_id, "author": author, "date": date}
-        )
+        # date contains the year, month, and day as integers
+        # if no date but url, we should use algorithm to check url on wayback machine for first if url
+        paragraphs = split_and_combine(text)
+        # for each paragraph, create a paragraph memory
+        for paragraph in paragraphs:
+            memories = get_memories("paragraphs", filter_metadata={"document_id": document_id})
+            for memory in memories:
+                if memory["document"] == paragraph:
+                    print("WARNING: Paragraph already exists in memory")
+                    continue
 
-    summary = trim_prompt(summary, 1024)
+            create_memory(
+                "paragraphs",
+                paragraph,
+                {
+                    "source": source,
+                    "document_id": document_id,
+                    "author": author,
+                    "date": json.dumps(date),
+                },
+            )
 
-    topics = format_topics(search_topics(summary))
+        summary = trim_prompt(summary, 1024)
 
-    # convert output_file to absolute path
-    output_file = os.path.abspath(output_file)
-    with open(output_file, "a") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(
-            [
-                "Input",
-                "Source",
-                "Claim",
-                "Relevant",
-                "Author",
-                "Debate Question",
-            ]
-        )
+        document_metadata["status"] = "summarized"
+        document_metadata["summary"] = summary
+        document_metadata["relevant"] = relevant
+        document_metadata["author"] = author
+        document_metadata["date"] = json.dumps(date)
 
-    ensure_dir_exists(output_file)
-    if author == "None" or author == "none":
+        update_memory("documents", document_id, metadata=document_metadata)
+
+    summary = document_metadata.get("summary", None)
+    relevant = document_metadata.get("relevant", None)
+    author = document_metadata.get("author", None)
+    date = document_metadata.get("date", None)
+
+    if author == "None" or author == "none" or author is None:
         author = ""
     for i, text_chunk in enumerate(text_chunks):
-        print("Extracting from chunk", i, "of", len(text_chunks))
-        print(text_chunk)
-        claims = extract_from_chunk(text_chunk, summary, research_topic, topics, author)
+        claims = extract_from_chunk(text_chunk, summary, research_topic, author)
         # check that claim[0] has all the values filled in for metadata
         if (len(claims) == 0) or (claims[0] is None):
             print("Warning, no claims extracted from chunk")
@@ -145,23 +155,14 @@ def extract(source, text, output_file, research_topic):
             claim = claims[k]
             if claim is None:
                 continue
-            print("Validating claim", k, "of", len(claims))
             claim_is_valid = validate_claim(claim, text_chunk)
             if claim_is_valid is False:
-                print('WARNING: Skipping claim, invalid')
+                print("WARNING: Skipping claim, invalid")
                 continue
             add_claim_to_memory(claim, document_id)
-            print("Writing to file", output_file)
-            writer.writerow(
-                [
-                    source,
-                    claim["source"],
-                    claim["claim"],
-                    claim["relevant"],
-                    claim["author"],
-                    claim["debate_question"],
-                ]
-            )
+
+    document_metadata["status"] = "extracted"
+    update_memory("documents", document_id, metadata=document_metadata)
 
 
 async def async_main(context):
@@ -175,32 +176,28 @@ async def async_main(context):
 
     tasks = []
     for url in urls:
-        clean_url = url_to_filename(url["document"])
+        memories = get_memories("documents", filter_metadata={"source": url["metadata"]["url"]})
+        if len(memories) == 0:
+            raise Exception("No document found for url " + url["metadata"]["url"])
+
+        document = memories[0]
+
         update_url_entry(
             url["id"], url["document"], valid=url["metadata"]["valid"], crawled=True
         )
 
-        # check if body exists
-        path = project_dir + "/" + clean_url + "/" + "body.txt"
-        if not os.path.exists(path):
-            path = url["document"]
+        text = document["metadata"]["text"]
+        source = document["metadata"]["source"]
 
-        filepath = project_dir + "/" + clean_url + "/" + "facts.csv"
+        task = async_extract(source, text, context["research_topic"])
 
-        # if filepath already exists, throw a warning
-        if os.path.exists(filepath):
-            print("Warning! File already exists:", filepath)
-            continue
-
-        task = extract_from_file_or_url(
-            path,
-            filepath,
-            context["research_topic"]
-        )
         tasks.append(task)
+
     await asyncio.gather(*tasks)
     return context
 
+async def async_extract(source, text, research_topic):
+    extract(source, text, research_topic)
 
 def main(context):
     loop = context["event_loop"]
@@ -225,13 +222,12 @@ def summarize_text(text):
     return response["arguments"]
 
 
-def extract_from_chunk(text, document_summary, research_topic, topics, author=None):
+def extract_from_chunk(text, document_summary, research_topic, author=None):
     dictionary = {
-            "research_topic": research_topic,
-            "summary": document_summary,
-            "topics": topics,
-            "text": text,
-        }
+        "research_topic": research_topic,
+        "summary": document_summary,
+        "text": text,
+    }
     if author:
         dictionary["author"] = " The author of this document is " + author
     else:

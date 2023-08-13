@@ -85,24 +85,9 @@ def update_url_entry(
 
 
 def url_has_been_crawled(url, context):
-    memory = get_entry_from_url(url)
-    if memory is not None:
-        return memory["metadata"]["crawled"]
-
-    clean_url = url_to_filename(url)
-    # check that cache folder exists
-    project_dir = context.get("project_dir", None)
-    if project_dir is None:
-        project_dir = "./project_data/" + context["project_name"]
-        os.makedirs(project_dir, exist_ok=True)
-        context["project_dir"] = project_dir
-
-    page_dir = project_dir + "/" + clean_url
-    # check if page_dir exists, if not return False
-    if not os.path.exists(page_dir):
-        return False
-    # check if body.txt exists
-    if not os.path.exists(page_dir + "/body.txt"):
-        return False
-    # body.txt exists, so the file has been scraped
-    return True
+    documents = get_memories("documents", filter_metadata={"source": url})
+    if len(documents) > 0:
+        print('******************** URL FOUND')
+        print(documents)
+        return True
+    return False
