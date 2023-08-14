@@ -1,16 +1,14 @@
 import asyncio
-import csv
 import json
 import os
-from agentmemory import create_memory, get_memories, update_memory
+from agentmemory import create_memory, get_memories, search_memory, update_memory
 from dotenv import load_dotenv
+import fuzzysearch
 from researchassistant.extract.validation import validate_claim
 
-from researchassistant.shared.files import ensure_dir_exists
 from researchassistant.shared.urls import (
     get_url_entries,
     update_url_entry,
-    url_to_filename,
 )
 
 from researchassistant.extract.prompts import (
@@ -66,24 +64,59 @@ def split_and_combine(text):
     return segments
 
 
-def add_claim_to_memory(claim, document_id):
+def add_claim_to_memory(claim, document_id, context):
+    project_name = context["project_name"]
     claim_source = claim["source"]
     claim["document_id"] = document_id
-    paragraphs = get_memories("paragraphs", filter_metadata={"document_id": document_id})
-    # find the paragraph that contains the claim
+    paragraphs = get_memories(project_name+"_paragraphs", filter_metadata={"document_id": document_id})
+    
+    test_claim_source = claim_source.lower()
+
     for paragraph in paragraphs:
-        if claim_source in paragraph["document"]:
-            # TODO: fuzzy match claims are failing
+        test_claim_source = "".join(
+            [c for c in test_claim_source if c.isalpha() or c == " " or c == "\n"]
+        )
+        document = paragraph["document"].lower()
+        document = "".join(
+            [c for c in document if c.isalpha() or c == " " or c == "\n"]
+        )
+        if test_claim_source in paragraph.lower:
             claim["paragraph_id"] = paragraph["id"]
             break
+        else:
+            matches = fuzzysearch.find_near_matches(
+                test_claim_source,
+                document,
+                max_l_dist=8,
+                max_substitutions=10,
+                max_insertions=10,
+                max_deletions=10,
+            )
+            if len(matches) > 0:
+                claim["paragraph_id"] = paragraph["id"]
+                break
+
+    # first, check if 
+    memories = search_memory(project_name+"_claims", claim["claim"], filter_metadata={"document_id": document_id, "source": claim_source})
+    if len(memories) > 0:
+        # check if any memories are similar, i.e. distance less than 0.05
+        for memory in memories:
+            if memory["claim"] == claim["claim"]:
+                print("WARNING: Claim already exists in memory")
+                return False
+            if memory["distance"] < 0.05:
+                print("WARNING: Claim already exists in memory")
+                return False
 
     # create a claim memory
-    create_memory("claims", claim["debate_question"] + " " + claim["claim"], claim)
+    create_memory(project_name + "_claims", claim["debate_question"] + " " + claim["claim"], claim)
     return True
 
 
-def extract(source, text, research_topic):
-    document = get_memories("documents", filter_metadata={"source": source})
+def extract(source, text, context):
+    research_topic = context["research_topic"]
+    project_name = context["project_name"]
+    document = get_memories(project_name+"_documents", filter_metadata={"source": source})
     document = document[0]
     document_id = document["id"]
 
@@ -108,14 +141,14 @@ def extract(source, text, research_topic):
         paragraphs = split_and_combine(text)
         # for each paragraph, create a paragraph memory
         for paragraph in paragraphs:
-            memories = get_memories("paragraphs", filter_metadata={"document_id": document_id})
+            memories = get_memories(project_name+"_paragraphs", filter_metadata={"document_id": document_id})
             for memory in memories:
                 if memory["document"] == paragraph:
                     print("WARNING: Paragraph already exists in memory")
                     continue
 
             create_memory(
-                "paragraphs",
+                project_name + "_paragraphs",
                 paragraph,
                 {
                     "source": source,
@@ -133,7 +166,7 @@ def extract(source, text, research_topic):
         document_metadata["author"] = author
         document_metadata["date"] = json.dumps(date)
 
-        update_memory("documents", document_id, metadata=document_metadata)
+        update_memory(project_name+"_documents", document_id, metadata=document_metadata)
 
     summary = document_metadata.get("summary", None)
     relevant = document_metadata.get("relevant", None)
@@ -158,45 +191,46 @@ def extract(source, text, research_topic):
             if claim_is_valid is False:
                 print("WARNING: Skipping claim, invalid")
                 continue
-            add_claim_to_memory(claim, document_id)
+            add_claim_to_memory(claim, document_id, context)
 
     document_metadata["status"] = "extracted"
-    update_memory("documents", document_id, metadata=document_metadata)
+    update_memory(project_name+"_documents", document_id, metadata=document_metadata)
 
 
 async def async_main(context):
+    project_name = context["project_name"]
     await async_init_browser()
     urls = get_url_entries(context, valid=True, crawled=True)
     project_dir = context.get("project_dir", None)
     if project_dir is None:
-        project_dir = "./project_data/" + context["project_name"]
+        project_dir = "./project_data/" + project_name
         os.makedirs(project_dir, exist_ok=True)
         context["project_dir"] = project_dir
 
     tasks = []
     for url in urls:
-        memories = get_memories("documents", filter_metadata={"source": url["metadata"]["url"]})
+        memories = get_memories(project_name+"_documents", filter_metadata={"source": url["metadata"]["url"]})
         if len(memories) == 0:
             raise Exception("No document found for url " + url["metadata"]["url"])
 
         document = memories[0]
 
         update_url_entry(
-            url["id"], url["document"], valid=url["metadata"]["valid"], crawled=True
+            url["id"], url["document"], valid=url["metadata"]["valid"], crawled=True, category=project_name+"_crawled_urls"
         )
 
         text = document["metadata"]["text"]
         source = document["metadata"]["source"]
 
-        task = async_extract(source, text, context["research_topic"])
+        task = async_extract(source, text, context)
 
         tasks.append(task)
 
     await asyncio.gather(*tasks)
     return context
 
-async def async_extract(source, text, research_topic):
-    extract(source, text, research_topic)
+async def async_extract(source, text, context):
+    extract(source, text, context)
 
 def main(context):
     loop = context["event_loop"]

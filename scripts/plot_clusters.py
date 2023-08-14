@@ -1,17 +1,25 @@
-import json
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans, DBSCAN
+from sklearn.cluster import KMeans
 
 from dotenv import load_dotenv
 load_dotenv()
 from agentmemory import get_memories
 
-claims = get_memories(category="claims", include_embeddings=True)
-paragraphs = get_memories(category="paragraphs", include_embeddings=True)
-documents = get_memories(category="documents", include_embeddings=True)
+
+# check sys args for --project argument and get value
+# if not provided, use default project, test
+if "--project" in sys.argv:
+    project_index = sys.argv.index("--project")
+    project_name = sys.argv[project_index + 1]
+else:
+    project_name = "test"
+
+claims = get_memories(category=project_name+"_claims", include_embeddings=True)
+paragraphs = get_memories(category=project_name+"_paragraphs", include_embeddings=True)
+documents = get_memories(category=project_name+"_documents", include_embeddings=True)
 
 data = claims + paragraphs + documents
 

@@ -44,40 +44,34 @@ def add_url_entry(
         url_data["backlink"] = backlink
 
     create_memory(
-        "scraped_urls",
+        project_name + "_crawled_urls",
         url,
         url_data,
     )
-    if context.get("scraped_urls", None) is None:
-        context["scraped_urls"] = []
-    context["scraped_urls"].append(url_data)
+    if context.get("crawled_urls", None) is None:
+        context["crawled_urls"] = []
+    context["crawled_urls"].append(url_data)
     return context
-
-
-def get_entry_from_url(url):
-    memory = get_memories("scraped_urls", filter_metadata={"url": url})
-    memory = memory[0] if len(memory) > 0 else None
-    return memory
 
 
 def get_url_entries(context):
     project_name = context["project_name"]
-    return get_memories("scraped_urls", filter_metadata={"project_name": project_name})
+    return get_memories(project_name+"_crawled_urls", filter_metadata={"project_name": project_name})
 
 
 def get_url_entries(context, valid=None, crawled=None):
     project_name = context["project_name"]
     # if valid and crawled are none, return all
     if valid is None and crawled is None:
-        return get_memories("scraped_urls")
+        return get_memories(project_name+"_crawled_urls")
     dict = {"valid": valid, "crawled": crawled, "project_name": project_name}
     # if any values in dict are None, remove
     dict = {k: str(v) for k, v in dict.items() if v is not None}
-    return get_memories("scraped_urls", filter_metadata=dict)
+    return get_memories(project_name+"_crawled_urls", filter_metadata=dict)
 
 
 def update_url_entry(
-    id, text, valid=True, crawled=True, type="url", category="scraped_urls"
+    id, text, valid=True, crawled=True, type="url", category="crawled_urls"
 ):
     update_memory(
         category, id, text, {"valid": valid, "crawled": crawled, "type": type}

@@ -3,7 +3,7 @@ import json
 from urllib.parse import urljoin
 from traceback import format_exc
 
-from agentmemory import create_memory
+from agentmemory import create_memory, get_memories, search_memory
 from agentbrowser import (
     async_navigate_to,
     async_get_body_text,
@@ -97,8 +97,28 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
             "status": "crawled",
         }
     
+    memories = get_memories(context["project_name"] + "_documents", contains_text=body_text.strip())
+    if(len(memories) > 0):
+        print("Skipping url:", url)
+        print("Document already exists. Text is the same.")
+        return
+    memories = get_memories(context["project_name"] + "_documents", filter_metadata={"source": url})
+    # sanity check that same url doesnt already exist
+    if(len(memories) > 0):
+        print("Skipping url:", url)
+        print("Document already exists. Url is the same.")
+        return
+    
+    # then sanity check that same text doesnt already exist
+    memories = search_memory(context["project_name"] + "_documents", max_distance=0.05)
+    if(len(memories) > 0):
+        related_document_id = memories[0]["id"]
+        metadata["related_to"] = related_document_id
+
+        # TODO: related_to should be determined by which one is older
+    
     create_memory(
-        "documents",
+        context["project_name"] + "_documents",
         body_text,
         metadata,
     )

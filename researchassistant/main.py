@@ -7,9 +7,7 @@ from rich.console import Console
 load_dotenv()  # take environment variables from .env.
 
 from agentloop import start, stop
-from agentmemory import (
-    increment_epoch,
-)
+from agentmemory import increment_epoch
 
 from researchassistant.crawl import crawl
 from researchassistant.extract import extract
@@ -17,7 +15,6 @@ from researchassistant.cluster import cluster
 
 # Suppress warning
 os.environ["TOKENIZERS_PARALLELISM"] = "False"
-
 
 
 def print_logo():
@@ -43,16 +40,15 @@ def create_prepare_step(project_data):
         for key in project_data:
             context[key] = project_data[key]
 
-
         loop = None
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         context["event_loop"] = loop
-            
+
         return context
 
     return prepare
@@ -67,13 +63,5 @@ def main(project_data):
     print_logo()
     prepare = create_prepare_step(project_data)
 
-    loop_dict = start(
-        [
-            prepare,
-            crawl,
-            extract,
-            cluster,
-            finish
-            ]
-    )
+    loop_dict = start([prepare, crawl, extract, cluster, finish])
     return loop_dict
