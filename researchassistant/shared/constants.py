@@ -16,17 +16,11 @@ skip_media_types = [
     "png",
     "jpg",
     "jpeg",
-    "mp3",
-    "mp4",
-    "aif",
-    "wav",
-    "ogg",
-    "mov",
-    "wmv",
     "zip",
     "exe",
     "bin",
 ]
+
 
 
 default_link_blacklist = [
