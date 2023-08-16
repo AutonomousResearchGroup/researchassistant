@@ -46,6 +46,6 @@ async def transcribe(url):
     return transcribed["text"].strip()
 
 if __name__ == "__main__":
-    instagram_url = "https://www.instagram.com/reel/Cv_8JMWghhi/"
+    instagram_url = "https://www.facebook.com/MojIndia/videos/1140950119725892/"
     result = asyncio.run(transcribe(instagram_url))
     print(result)

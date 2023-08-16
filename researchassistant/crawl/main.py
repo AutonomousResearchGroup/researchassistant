@@ -49,7 +49,16 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
 
     # if the url includes youtube.com in the domain, return
     if any([media_url in url for media_url in default_media_domains]):
-        transcribed_text = await transcribe(url)
+        try:
+            transcribed_text = await transcribe(url)
+        except Exception as e:
+            print(f"Error transcribing the URL {url}: {e}")
+            print("Skipping media domain:", url)
+            context = add_url_entry(
+                url, url, context, valid=True, type="media_url", crawled=False
+            )
+            return
+            
 
     page = await async_create_page(url)
 
