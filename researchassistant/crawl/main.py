@@ -18,7 +18,7 @@ from researchassistant.shared.constants import (
     default_link_blacklist,
     default_element_blacklist,
 )
-from researchassistant.shared.html import extract_links, extract_page_title
+from researchassistant.shared.custom_html import extract_links, extract_page_title
 from researchassistant.shared.urls import (
     add_url_entry,
     url_has_been_crawled,
