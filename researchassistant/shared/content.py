@@ -27,6 +27,7 @@ def get_content_from_pdf(input_file):
             return text
         except PyPDF2.errors.PdfReadError:
             error_msg = "Failed to read PDF file."
+            print(error_msg)
             return error_msg
             # sys.exit()
 
@@ -48,5 +49,6 @@ async def get_content_from_file(input_file):
             return get_content_from_txt(input_file)
         else:
             error_msg = "Invalid input file format. Please provide a URL or a PDF file."
+            print(error_msg)
             return error_msg
             # sys.exit()
