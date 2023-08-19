@@ -15,7 +15,7 @@ def test_extract_page_title_valid_title():
 
     extraction_result = extract_page_title(html_data)
     expected_result = "Test title"
-    assert extraction_result == expected_result
+    assert extraction_result == expected_result, "The title should be 'Test title'"
 
 
 def test_extract_page_title_no_title():
@@ -28,7 +28,7 @@ def test_extract_page_title_no_title():
     """
 
     extraction_result = extract_page_title(html_data)
-    assert extraction_result is None
+    assert extraction_result is None, "The title should be None"
 
 
 def test_extract_links_no_links():
@@ -42,7 +42,7 @@ def test_extract_links_no_links():
     """
 
     extraction_result = extract_links(html_data)
-    assert len(extraction_result) == 0
+    assert len(extraction_result) == 0, "The extraction result should be empty"
 
 
 def test_extract_links_blank_link():
@@ -63,8 +63,8 @@ def test_extract_links_blank_link():
             "url": "https://www.example.com"
         }
     ]
-    assert len(extraction_result) == 1
-    assert extraction_result == expected_result
+    assert len(extraction_result) == 1, "The extraction result should have 1 link"
+    assert extraction_result == expected_result, "The extraction result should be ['Example', 'https://www.example.com']"
 
 
 def test_extract_links_valid_links():
@@ -88,5 +88,5 @@ def test_extract_links_valid_links():
             "url": "https://www.github.com"
         }
     ]
-    assert len(extraction_result) == 2
-    assert extraction_result == expected_result
+    assert len(extraction_result) == 2, "The extraction result should have 2 links"
+    assert extraction_result == expected_result, "Extraction result should be same as expected result"

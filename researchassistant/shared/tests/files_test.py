@@ -8,8 +8,7 @@ def test_create_project_dir():
         }
         result = create_project_dir(data)
         expected_project_dir = "./project_data/new_project"
-
-        assert result["project_dir"] == expected_project_dir
-        assert os.path.exists(expected_project_dir)
+        assert os.path.exists(expected_project_dir), "The project dir should exist."
+        assert result["project_dir"] == expected_project_dir, "The project dir should be the same as the expected result."
 
         os.rmdir(expected_project_dir)
