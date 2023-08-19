@@ -1,5 +1,5 @@
-import asyncio
 import os
+import asyncio
 import PyPDF2
 from tempfile import NamedTemporaryFile
 
@@ -60,8 +60,8 @@ def test_get_content_from_file_http():
 
 def test_get_content_from_file_invalid_file_format():
     invalid_format = ".invalid_format"
-    # Create a temporary file with invalid format
     test_content = "This is a test content."
+    # Create a temporary file with invalid format
     with NamedTemporaryFile(suffix=invalid_format, delete=False) as temp_file:
         temp_file.write(test_content.encode())
         temp_file_path = temp_file.name
