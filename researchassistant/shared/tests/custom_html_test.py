@@ -64,7 +64,7 @@ def test_extract_links_blank_link():
         }
     ]
     assert len(extraction_result) == 1, "The extraction result should have 1 link"
-    assert extraction_result == expected_result, "The extraction result should be ['Example', 'https://www.example.com']"
+    assert extraction_result == expected_result, "The extraction result should be the same as expected result"
 
 
 def test_extract_links_valid_links():

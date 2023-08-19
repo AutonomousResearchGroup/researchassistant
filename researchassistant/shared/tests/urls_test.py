@@ -23,6 +23,7 @@ def test_add_url_entry():
         "valid": 'True',
         "crawled": 'True',
     }
+    # Assert that the memory was created correctly
     assert result["crawled_urls"][0]["text"] == expected_crawled_data["text"]
     assert result["crawled_urls"][0]["url"] == expected_crawled_data["url"]
     assert result["crawled_urls"][0]["type"] == expected_crawled_data["type"]
