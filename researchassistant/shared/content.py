@@ -1,6 +1,5 @@
 import sys
 
-import logging
 import PyPDF2
 from dotenv import load_dotenv
 
@@ -26,8 +25,7 @@ def get_content_from_pdf(input_file):
             for i in range(len(pdf_reader.pages)):
                 text += pdf_reader.pages[i].extract_text()
             return text
-        except PyPDF2.errors.PdfReadError as e:
-            logging.error(e)
+        except PyPDF2.errors.PdfReadError:
             return "Failed to read PDF file."
             # sys.exit()
 
