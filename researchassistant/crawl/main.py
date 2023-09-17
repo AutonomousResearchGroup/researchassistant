@@ -48,6 +48,7 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
         return
 
     # if the url includes youtube.com in the domain, return
+    transcribed_text = ""
     if any([media_url in url for media_url in default_media_domains]):
         try:
             transcribed_text = await transcribe(url)
@@ -60,13 +61,29 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
             return
             
 
-    page = await async_create_page(url)
+    try:
+        page = await async_create_page(url)
+    except Exception as e:
+        print("Error creating page for:", url)
+        print("Skipping url:", url)
+        context = add_url_entry(
+            url, url, context, valid=True, type="url", crawled=False
+        )
+        return
 
     page = await async_navigate_to(url, page)
 
     # check if the body contains any of the keywords
     # if it doesn't return
-    body_html = await async_get_body_html(page)
+    try:
+        body_html = await async_get_body_html(page)
+    except Exception as e:
+        print("Error getting body html for:", url)
+        print("Skipping url:", url)
+        context = add_url_entry(
+            url, url, context, valid=True, type="url", crawled=False
+        )
+        return
 
     html = await async_get_document_html(page)
 
@@ -117,7 +134,7 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
         return
     
     # then sanity check that same text doesnt already exist
-    memories = search_memory(context["project_name"] + "_documents", max_distance=0.05)
+    memories = search_memory(category=context["project_name"] + "_documents", search_text=body_text, max_distance=0.05)
     if(len(memories) > 0):
         related_document_id = memories[0]["id"]
         metadata["related_to"] = related_document_id
@@ -139,15 +156,15 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
         if link["url"] in ["#", "", "/"]:
             continue
 
-        link["url"] = urljoin(url, link["url"])
-        valid_links.append(link)
-    context = await crawl_all_urls(valid_links, context, backlink)
+        valid_links.append(urljoin(url, link["url"]))
+    valid_links = list(set(valid_links))
+    context = await crawl_all_urls(valid_links, context, backlink, depth + 1, maximum_depth)
     return context
 
 
-async def crawl_all_urls(urls, context, backlink=None):
+async def crawl_all_urls(urls, context, backlink=None, depth=0, maximum_depth=3):
     # Create a coroutine for each url to crawl
-    tasks = [crawl(url, context, backlink) for url in urls]
+    tasks = [crawl(url, context, backlink, depth, maximum_depth) for url in urls]
 
     # Now we run each coroutine
     for task in asyncio.as_completed(tasks):
