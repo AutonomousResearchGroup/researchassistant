@@ -2,6 +2,11 @@ import asyncio
 import json
 from urllib.parse import urljoin
 from traceback import format_exc
+from asyncio import Semaphore
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 
 from agentmemory import create_memory, get_memories, search_memory
 from agentbrowser import (
@@ -28,11 +33,14 @@ from researchassistant.shared.transcribe import transcribe
 # Global set for deduplication
 crawled_links = set()
 
+async def crawl(url, context, backlink=None, sem=None, depth=0, maximum_depth=3):
+    logging.info(f"Starting crawl function for URL {url} at depth {depth}")
 
-async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
     # if we have reached maximum depth, skip
     if depth > maximum_depth:
         return
+
+    print("crawling", url)
 
     if url_has_been_crawled(url, context):
         print("Url has already been crawled.")
@@ -59,59 +67,26 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
                 url, url, context, valid=True, type="media_url", crawled=False
             )
             return
-            
+    page = await async_create_page(url)
 
     try:
-        page = await async_create_page(url)
-    except Exception as e:
-        print("Error creating page for:", url)
-        print("Skipping url:", url)
-        context = add_url_entry(
-            url, url, context, valid=True, type="url", crawled=False
-        )
-        return
-
-    page = await async_navigate_to(url, page)
-
-    # check if the body contains any of the keywords
-    # if it doesn't return
-    try:
+        page = await async_navigate_to(url, page)
+        
         body_html = await async_get_body_html(page)
-    except Exception as e:
-        print("Error getting body html for:", url)
-        print("Skipping url:", url)
-        context = add_url_entry(
-            url, url, context, valid=True, type="url", crawled=False
-        )
-        return
+        html = await async_get_document_html(page)
+        body_text = await async_get_body_text(page)
+        body_text = "".join([body_text, transcribed_text])
 
-    html = await async_get_document_html(page)
+        title = extract_page_title(html) or body_text[:10]
 
-    body_text = await async_get_body_text(page)
-    body_text = body_text + transcribed_text
+        if not any(keyword in body_text for keyword in context["keywords"]):
+            add_url_entry(url, title, context, valid=False, crawled=True)
+            return
 
-    title = extract_page_title(html)
+        links = extract_links(body_html)
+        links = list(set(urljoin(url, link["url"]) for link in links if link["url"] not in {"#", "", "/"}))
 
-    if title is None:
-        # throw error until we see some edge cases
-        # raise Exception("Title is none, skipping url.")
-        print("Warning! Title is none, using body text instead.")
-        title = body_text[:10]
-
-    # if none of the keywords are contained
-    if not any([keyword in body_text for keyword in context["keywords"]]):
-        print("Skipping url:", url)
-        print("No keywords found in body text.")
-        # add the url to the memory
-        add_url_entry(url, title, context, valid=False, crawled=True)
-        return
-
-    links = extract_links(body_html)
-
-    # convert links to a list
-    links = list(links)
-
-    metadata = {
+        metadata = {
             "title": title,
             "document_html": html,
             "body_html": body_html,
@@ -120,77 +95,116 @@ async def crawl(url, context, backlink=None, depth=0, maximum_depth=3):
             "links": json.dumps(links),
             "status": "crawled",
         }
-    
-    memories = get_memories(context["project_name"] + "_documents", contains_text=body_text.strip())
-    if(len(memories) > 0):
-        print("Skipping url:", url)
-        print("Document already exists. Text is the same.")
-        return
-    memories = get_memories(context["project_name"] + "_documents", filter_metadata={"source": url})
-    # sanity check that same url doesnt already exist
-    if(len(memories) > 0):
-        print("Skipping url:", url)
-        print("Document already exists. Url is the same.")
-        return
-    
-    # then sanity check that same text doesnt already exist
-    memories = search_memory(category=context["project_name"] + "_documents", search_text=body_text, max_distance=0.05)
-    if(len(memories) > 0):
-        related_document_id = memories[0]["id"]
-        metadata["related_to"] = related_document_id
 
-        # TODO: related_to should be determined by which one is older
-    
-    create_memory(
-        context["project_name"] + "_documents",
-        body_text,
-        metadata,
-    )
+        memories = get_memories(
+            context["project_name"] + "_documents", contains_text=body_text.strip()
+        )
+        if len(memories) > 0:
+            print("Skipping url:", url)
+            print("Document already exists. Text is the same.")
+            return
+        memories = get_memories(
+            context["project_name"] + "_documents", filter_metadata={"source": url}
+        )
+        # sanity check that same url doesnt already exist
+        if len(memories) > 0:
+            print("Skipping url:", url)
+            print("Document already exists. Url is the same.")
+            return
 
-    add_url_entry(url, title, context, backlink=backlink, valid=True, crawled=True)
+        # then sanity check that same text doesnt already exist
+        memories = search_memory(
+            category=context["project_name"] + "_documents",
+            search_text=body_text,
+            max_distance=0.05,
+        )
+        if len(memories) > 0:
+            related_document_id = memories[0]["id"]
+            metadata["related_to"] = related_document_id
 
-    valid_links = []
+            # TODO: related_to should be determined by which one is older
 
-    for link in links:
-        # skip common hrefs that don't lead anywhere
-        if link["url"] in ["#", "", "/"]:
-            continue
 
-        valid_links.append(urljoin(url, link["url"]))
-    valid_links = list(set(valid_links))
-    context = await crawl_all_urls(valid_links, context, backlink, depth + 1, maximum_depth)
+        print('creating memory')
+        create_memory(
+            context["project_name"] + "_documents",
+            body_text,
+            metadata,
+        )
+
+        add_url_entry(url, title, context, backlink=backlink, valid=True, crawled=True)
+
+        print('crawling valid links')
+        tasks = [asyncio.create_task(crawl(link, context, sem=sem, depth=depth+1, maximum_depth=maximum_depth)) for link in links]
+        await asyncio.gather(*tasks)
+
+        logging.info(f"Finishing crawl function for URL {url} at depth {depth}")
+
+    finally:
+        if page is not None:
+            await page.close()
+
     return context
 
 
-async def crawl_all_urls(urls, context, backlink=None, depth=0, maximum_depth=3):
-    # Create a coroutine for each url to crawl
-    tasks = [crawl(url, context, backlink, depth, maximum_depth) for url in urls]
+async def crawl_all_urls(urls, context, sem, backlink=None, depth=0, maximum_depth=3):
+    logging.info(f"Starting crawl_all_urls with urls: {urls} at depth {depth}")
+    
+    async def bound_crawl(sem, url):
+        logging.info(f"Starting bound_crawl for URL {url}")
 
-    # Now we run each coroutine
-    for task in asyncio.as_completed(tasks):
-        try:
-            result = await task
-        except Exception as e:
-            print(f"Exception occurred: {e}")
-            print(f"Traceback: {format_exc()}")
+        async with sem: 
+            try:
+                await crawl(url, context, backlink, sem, depth, maximum_depth)
+            except Exception as e:
+                logging.error(f"Exception in bound_crawl: {e}")
+                logging.error(f"Traceback: {format_exc()}")
+
+        logging.info(f"Finishing bound_crawl for URL {url}")
+
+    try:
+        tasks = [asyncio.create_task(bound_crawl(sem, url)) for url in urls]
+        await asyncio.gather(*tasks)
+    except Exception as e:
+        logging.error(f"Exception in crawl_all_urls: {e}")
+        logging.error(f"Traceback: {format_exc()}")
+    finally:
+        # Ensure resources are freed in case of failure
+        for task in tasks:
+            task.cancel()
+
+    logging.info(f"Finishing crawl_all_urls with urls: {urls} at depth {depth}")
+
+
 
 
 def main(context):
-    context["skip_media_types"]: skip_media_types
-    context["media_domains"]: default_media_domains
-    context["link_blacklist"]: default_link_blacklist
-    context["element_blacklist"]: default_element_blacklist
+    logging.info("Starting main function")
+    
+    context["skip_media_types"] = skip_media_types
+    context["media_domains"] = default_media_domains
+    context["link_blacklist"] = default_link_blacklist
+    context["element_blacklist"] = default_element_blacklist
 
     urls = context["urls"]
     if not isinstance(urls, list):
         urls = urls.replace(",", "\n").split("\n")
         urls = [url.strip() for url in urls]
 
-    # context = validate_crawl(context)
     print("Starting crawl...")
 
-    loop = context["event_loop"]
+    sem = asyncio.Semaphore(value=3)
+    
+    crawl_all_urls_coro = crawl_all_urls(urls, context, sem) # Get coroutine object
 
-    loop.run_until_complete(crawl_all_urls(urls, context))
-    print("Crawled")
+    try:
+        asyncio.run(crawl_all_urls_coro) # Run the coroutine here
+    except Exception as e:
+        logging.error(f"An error occurred during crawling: {e}")
+        # Here, you might want to add code to gracefully handle the error, perhaps by retrying the operation a limited number of times
+    finally:
+        # If agentmemory library provides a way to cleanly close the database connection, do it here
+        pass
+    
+    logging.info("Finishing main function")
     return context

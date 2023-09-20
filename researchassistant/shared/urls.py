@@ -48,9 +48,6 @@ def add_url_entry(
         url,
         url_data,
     )
-    if context.get("crawled_urls", None) is None:
-        context["crawled_urls"] = []
-    context["crawled_urls"].append(url_data)
     return context
 
 
@@ -78,7 +75,7 @@ def update_url_entry(
     )
 
 
-def url_has_been_crawled(url, context):
+def url_has_been_crawled(url):
     documents = get_memories("documents", filter_metadata={"source": url})
     if len(documents) > 0:
         return True
